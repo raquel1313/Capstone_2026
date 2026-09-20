@@ -1,0 +1,149 @@
+import { useState } from 'react';
+
+import { Plus, Search } from 'lucide-react';
+
+import type { Product } from '@/data';
+
+import { formatPrice } from '@/data';
+
+export function OrdersView({
+  products,
+  addToCart,
+  category,
+  setCategory,
+}: {
+  products: Product[];
+  addToCart: (product: Product) => void;
+  category: string | null;
+  setCategory: (category: string | null) => void;
+}) {
+  const [query, setQuery] = useState('');
+
+  // Categorías reales de los productos (más la activa, aunque todavía no tenga productos)
+  const categories = Array.from(new Set(products.map((p) => p.category)));
+
+  if (category && !categories.includes(category)) {
+    categories.push(category);
+  }
+
+  const filtered = products.filter((p) => {
+    const matchesCategory = !category || p.category === category;
+    const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
+
+    return matchesCategory && matchesQuery;
+  });
+
+  return (
+    <div className="pb-5">
+      <div className="mb-8">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
+          Compra rápida
+        </p>
+
+        <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+          Cafetería
+        </h2>
+
+        <p className="mt-2 max-w-md text-sm leading-6 text-black/50">
+          Elige tus productos, confirma tu pedido y retíralo en el mesón.
+        </p>
+      </div>
+
+      <div className="relative mb-4 max-w-xl">
+        <Search
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-black/35"
+          size={17}
+        />
+
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Buscar snacks, bebidas..."
+          className="w-full rounded-2xl border border-black/5 bg-white py-4 pl-11 pr-4 text-sm outline-none transition placeholder:text-black/35 focus:border-[#4e0611]"
+        />
+      </div>
+
+      {/* Filtro por categoría */}
+      <div className="mb-7 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          onClick={() => setCategory(null)}
+          aria-pressed={category === null}
+          className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
+            category === null
+              ? 'bg-[#4e0611] text-white'
+              : 'bg-white font-medium text-black/55 hover:bg-black/5'
+          }`}
+        >
+          Todo
+        </button>
+
+        {categories.map((name) => (
+          <button
+            key={name}
+            onClick={() => setCategory(name)}
+            aria-pressed={category === name}
+            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
+              category === name
+                ? 'bg-[#4e0611] text-white'
+                : 'bg-white font-medium text-black/55 hover:bg-black/5'
+            }`}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-black/45">
+          No hay productos en esta categoría por ahora.
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((product) => (
+            <div
+              key={product.id}
+              className="rounded-3xl bg-white p-3"
+            >
+              <div
+                className={`relative h-40 overflow-hidden rounded-2xl bg-gradient-to-br ${product.tone}`}
+              >
+                {product.image && (
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                )}
+
+                <div className="absolute left-4 top-4 rounded-full bg-white/65 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-black/50">
+                  {product.category}
+                </div>
+              </div>
+
+              <div className="p-2 pt-4">
+                <p className="font-semibold">{product.name}</p>
+
+                <p className="mt-1 text-xs text-black/45">
+                  {product.description}
+                </p>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-sm font-semibold">
+                    {formatPrice(product.price)}
+                  </span>
+
+                  <button
+                    onClick={() => addToCart(product)}
+                    className="grid h-9 w-9 place-items-center rounded-full bg-[#252525] text-white hover:bg-[#4e0611]"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
