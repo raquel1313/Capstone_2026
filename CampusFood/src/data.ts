@@ -17,6 +17,7 @@ export type Product = {
   category: string;
   tone: string;
   image?: string | StaticImageData;
+  soldOut?: boolean;
 };
 
 export const products: Product[] = [

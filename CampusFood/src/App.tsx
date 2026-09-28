@@ -180,6 +180,11 @@ function App() {
     subtotal: number
   ) => addOrder(cartItems, subtotal, user.username);
 
+  // Productos que se agotaron (el carrito guarda copias, así que se consulta el catálogo actual)
+  const soldOutIds = products
+    .filter((product) => product.soldOut)
+    .map((product) => product.id);
+
   // Cambia de vista; al entrar a Cafetería desde el menú se limpia el filtro
   const goTo = (next: View) => {
     if (next === 'orders') setOrderCategory(null);
@@ -299,6 +304,7 @@ function App() {
             goTo('orders');
           }}
           addOrder={handleAddOrder}
+          soldOutIds={soldOutIds}
         />
       )}
     </main>

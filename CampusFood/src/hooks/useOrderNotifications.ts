@@ -47,17 +47,26 @@ function readStorage(key: string | null): string {
   }
 }
 
-function writeStorageArray<T>(key: string | null, value: T[]): void {
+function writeStorageArray<T>(
+  key: string | null,
+  value: T[]
+): void {
   if (!key || typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(key, JSON.stringify(value));
+  window.localStorage.setItem(
+    key,
+    JSON.stringify(value)
+  );
 
   window.dispatchEvent(
-    new CustomEvent<StorageUpdateDetail>(STORAGE_UPDATE_EVENT, {
-      detail: { key },
-    })
+    new CustomEvent<StorageUpdateDetail>(
+      STORAGE_UPDATE_EVENT,
+      {
+        detail: { key },
+      }
+    )
   );
 }
 
@@ -76,19 +85,34 @@ function subscribeToStorageKey(
   };
 
   const handleLocalUpdate = (event: Event) => {
-    const customEvent = event as CustomEvent<StorageUpdateDetail>;
+    const customEvent =
+      event as CustomEvent<StorageUpdateDetail>;
 
     if (customEvent.detail?.key === key) {
       callback();
     }
   };
 
-  window.addEventListener('storage', handleStorage);
-  window.addEventListener(STORAGE_UPDATE_EVENT, handleLocalUpdate);
+  window.addEventListener(
+    'storage',
+    handleStorage
+  );
+
+  window.addEventListener(
+    STORAGE_UPDATE_EVENT,
+    handleLocalUpdate
+  );
 
   return () => {
-    window.removeEventListener('storage', handleStorage);
-    window.removeEventListener(STORAGE_UPDATE_EVENT, handleLocalUpdate);
+    window.removeEventListener(
+      'storage',
+      handleStorage
+    );
+
+    window.removeEventListener(
+      STORAGE_UPDATE_EVENT,
+      handleLocalUpdate
+    );
   };
 }
 
@@ -96,13 +120,19 @@ function getServerSnapshot(): string {
   return EMPTY_ARRAY_JSON;
 }
 
-function useStoredArray<T>(key: string | null): T[] {
+function useStoredArray<T>(
+  key: string | null
+): T[] {
   const subscribe = useCallback(
-    (callback: () => void) => subscribeToStorageKey(key, callback),
+    (callback: () => void) =>
+      subscribeToStorageKey(key, callback),
     [key]
   );
 
-  const getSnapshot = useCallback(() => readStorage(key), [key]);
+  const getSnapshot = useCallback(
+    () => readStorage(key),
+    [key]
+  );
 
   const snapshot = useSyncExternalStore(
     subscribe,
@@ -110,7 +140,10 @@ function useStoredArray<T>(key: string | null): T[] {
     getServerSnapshot
   );
 
-  return useMemo(() => parseStoredArray<T>(snapshot), [snapshot]);
+  return useMemo(
+    () => parseStoredArray<T>(snapshot),
+    [snapshot]
+  );
 }
 
 export function useOrderNotifications(
@@ -126,10 +159,16 @@ export function useOrderNotifications(
     : null;
 
   const notifications =
-    useStoredArray<OrderNotification>(notificationsKey);
+    useStoredArray<OrderNotification>(
+      notificationsKey
+    );
 
   useEffect(() => {
-    if (!username || !notificationsKey || !dismissedKey) {
+    if (
+      !username ||
+      !notificationsKey ||
+      !dismissedKey
+    ) {
       return;
     }
 
@@ -143,23 +182,34 @@ export function useOrderNotifications(
         readStorage(dismissedKey)
       );
 
-    const existingOrderIds = new Set(
-      currentNotifications.map(
-        (notification) => notification.orderId
-      )
-    );
+    const alreadyHandledOrderIds =
+      new Set([
+        ...currentNotifications.map(
+          (notification) =>
+            notification.orderId
+        ),
+        ...currentDismissedOrderIds,
+      ]);
 
-    const dismissedIds = new Set(
-      currentDismissedOrderIds
-    );
-
-    const newNotifications: OrderNotification[] = [];
+    const newNotifications:
+      OrderNotification[] = [];
 
     for (const order of orders) {
-      if (order.username !== username) continue;
-      if (order.status !== 'listo') continue;
-      if (existingOrderIds.has(order.id)) continue;
-      if (dismissedIds.has(order.id)) continue;
+      if (order.username !== username) {
+        continue;
+      }
+
+      if (order.status !== 'listo') {
+        continue;
+      }
+
+      if (
+        alreadyHandledOrderIds.has(
+          order.id
+        )
+      ) {
+        continue;
+      }
 
       newNotifications.push({
         id: `notif-${Date.now()}-${order.id}`,
@@ -174,10 +224,13 @@ export function useOrderNotifications(
       return;
     }
 
-    writeStorageArray(notificationsKey, [
-      ...newNotifications,
-      ...currentNotifications,
-    ]);
+    writeStorageArray(
+      notificationsKey,
+      [
+        ...newNotifications,
+        ...currentNotifications,
+      ]
+    );
   }, [
     orders,
     username,
@@ -186,40 +239,61 @@ export function useOrderNotifications(
   ]);
 
   const markAsRead = (id: string) => {
-    if (!notificationsKey) return;
+    if (!notificationsKey) {
+      return;
+    }
 
     const current =
       parseStoredArray<OrderNotification>(
         readStorage(notificationsKey)
       );
 
-    const updated = current.map((notification) =>
-      notification.id === id
-        ? { ...notification, read: true }
-        : notification
+    const updated = current.map(
+      (notification) =>
+        notification.id === id
+          ? {
+              ...notification,
+              read: true,
+            }
+          : notification
     );
 
-    writeStorageArray(notificationsKey, updated);
+    writeStorageArray(
+      notificationsKey,
+      updated
+    );
   };
 
   const markAllAsRead = () => {
-    if (!notificationsKey) return;
+    if (!notificationsKey) {
+      return;
+    }
 
     const current =
       parseStoredArray<OrderNotification>(
         readStorage(notificationsKey)
       );
 
-    const updated = current.map((notification) => ({
-      ...notification,
-      read: true,
-    }));
+    const updated = current.map(
+      (notification) => ({
+        ...notification,
+        read: true,
+      })
+    );
 
-    writeStorageArray(notificationsKey, updated);
+    writeStorageArray(
+      notificationsKey,
+      updated
+    );
   };
 
-  const dismissNotification = (id: string) => {
-    if (!notificationsKey || !dismissedKey) {
+  const dismissNotification = (
+    id: string
+  ) => {
+    if (
+      !notificationsKey ||
+      !dismissedKey
+    ) {
       return;
     }
 
@@ -228,9 +302,11 @@ export function useOrderNotifications(
         readStorage(notificationsKey)
       );
 
-    const target = currentNotifications.find(
-      (notification) => notification.id === id
-    );
+    const target =
+      currentNotifications.find(
+        (notification) =>
+          notification.id === id
+      );
 
     if (!target) {
       return;
@@ -246,23 +322,29 @@ export function useOrderNotifications(
         target.orderId
       )
     ) {
-      writeStorageArray(dismissedKey, [
-        ...currentDismissedOrderIds,
-        target.orderId,
-      ]);
+      writeStorageArray(
+        dismissedKey,
+        [
+          ...currentDismissedOrderIds,
+          target.orderId,
+        ]
+      );
     }
 
     writeStorageArray(
       notificationsKey,
       currentNotifications.filter(
-        (notification) => notification.id !== id
+        (notification) =>
+          notification.id !== id
       )
     );
   };
 
-  const unreadCount = notifications.filter(
-    (notification) => !notification.read
-  ).length;
+  const unreadCount =
+    notifications.filter(
+      (notification) =>
+        !notification.read
+    ).length;
 
   return {
     notifications,

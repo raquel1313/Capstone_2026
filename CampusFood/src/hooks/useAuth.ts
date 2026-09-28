@@ -1,6 +1,14 @@
-import { useState } from 'react';
+import {
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
-export type Role = 'student' | 'admin';
+import {
+  loadUsers,
+  type Role,
+} from './useUsers';
+
+export type { Role };
 
 export type User = {
   username: string;
@@ -8,54 +16,178 @@ export type User = {
   role: Role;
 };
 
-// Usuarios de prueba mientras no exista backend.
-// TODO: reemplazar por validación real contra la base de datos en Fase 2.
-const USERS: (User & { password: string })[] = [
-  { username: 'camila@duocuc.cl', password: '1234', name: 'Camila', role: 'student' },
-  { username: 'claudia@duocuc.cl', password: '1234', name: 'Claudia', role: 'student' },
-   { username: 'sofia@duocuc.cl', password: '1234', name: 'Sofia', role: 'student' },
-    { username: 'raquel@duocuc.cl', password: '1234', name: 'Raquel', role: 'student' },
-     { username: 'ella@duocuc.cl', password: '1234', name: 'Ella', role: 'student' },
-      { username: 'martina@duocuc.cl', password: '1234', name: 'Martina', role: 'student' },
-  { username: 'admin@duocuc.cl', password: 'casino2026', name: 'Personal Casino', role: 'admin' },
-];
-
 const SESSION_KEY = 'campusfood_session';
+const SESSION_UPDATE_EVENT = 'campusfood-session-update';
 
-function loadSession(): User | null {
+function readSessionSnapshot(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return window.sessionStorage.getItem(
+      SESSION_KEY
+    );
   } catch {
     return null;
   }
 }
 
-export function useAuth() {
-  const [user, setUser] = useState<User | null>(() => loadSession());
-  const [error, setError] = useState<string | null>(null);
+function getServerSnapshot(): null {
+  return null;
+}
 
-  const login = (username: string, password: string) => {
-    const match = USERS.find(
-      (u) => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password
+function parseSession(
+  raw: string | null
+): User | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('username' in parsed) ||
+      !('name' in parsed) ||
+      !('role' in parsed)
+    ) {
+      return null;
+    }
+
+    const user = parsed as Partial<User>;
+
+    if (
+      typeof user.username !== 'string' ||
+      typeof user.name !== 'string' ||
+      (user.role !== 'student' &&
+        user.role !== 'admin')
+    ) {
+      return null;
+    }
+
+    return {
+      username: user.username,
+      name: user.name,
+      role: user.role,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function subscribeToSession(
+  callback: () => void
+): () => void {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  window.addEventListener(
+    SESSION_UPDATE_EVENT,
+    callback
+  );
+
+  return () => {
+    window.removeEventListener(
+      SESSION_UPDATE_EVENT,
+      callback
+    );
+  };
+}
+
+function notifySessionChange(): void {
+  window.dispatchEvent(
+    new Event(SESSION_UPDATE_EVENT)
+  );
+}
+
+function saveSession(user: User): void {
+  window.sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify(user)
+  );
+
+  notifySessionChange();
+}
+
+function clearSession(): void {
+  window.sessionStorage.removeItem(
+    SESSION_KEY
+  );
+
+  notifySessionChange();
+}
+
+export function useAuth() {
+  const sessionSnapshot =
+    useSyncExternalStore(
+      subscribeToSession,
+      readSessionSnapshot,
+      getServerSnapshot
+    );
+
+  const user = parseSession(
+    sessionSnapshot
+  );
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const login = (
+    username: string,
+    password: string
+  ) => {
+    const normalizedUsername =
+      username.trim().toLowerCase();
+
+    const match = loadUsers().find(
+      (candidate) =>
+        candidate.username.toLowerCase() ===
+          normalizedUsername &&
+        candidate.password === password
     );
 
     if (!match) {
-      setError('Usuario o contraseña incorrectos.');
+      setError(
+        'Usuario o contraseña incorrectos.'
+      );
+
       return false;
     }
 
-    const loggedUser: User = { username: match.username, name: match.name, role: match.role };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(loggedUser));
-    setUser(loggedUser);
+    if (match.status === 'Inactivo') {
+      setError(
+        'Tu cuenta está desactivada. Contacta al personal del casino.'
+      );
+
+      return false;
+    }
+
+    const loggedUser: User = {
+      username: match.username,
+      name: match.name,
+      role: match.role,
+    };
+
+    saveSession(loggedUser);
+
     setError(null);
+
     return true;
   };
 
   const logout = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setUser(null);
+    clearSession();
+    setError(null);
   };
 
-  return { user, login, logout, error };
+  return {
+    user,
+    login,
+    logout,
+    error,
+  };
 }
