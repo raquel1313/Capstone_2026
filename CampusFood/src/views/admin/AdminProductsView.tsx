@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Check, Package, Plus, Pencil, RotateCcw, Trash2, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Package, Plus, Pencil, RotateCcw, Trash2, X } from 'lucide-react';
 
 import type { Product } from '@/data';
 
@@ -23,6 +23,7 @@ const EMPTY_FORM = {
   category: CATEGORY_OPTIONS[0],
   tone: TONE_OPTIONS[0].value,
   image: '',
+  soldOut: false,
 };
 
 type FormValues = typeof EMPTY_FORM;
@@ -138,6 +139,18 @@ function ProductForm({
             className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
           />
         </div>
+
+        <label className="flex items-center gap-2 text-xs text-black/50">
+          <input
+            type="checkbox"
+            checked={form.soldOut}
+            onChange={(event) =>
+              setForm({ ...form, soldOut: event.target.checked })
+            }
+            className="h-4 w-4 rounded accent-red-500"
+          />
+          Marcar como agotado
+        </label>
       </div>
 
       {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
@@ -165,13 +178,17 @@ function ProductCard({
   product,
   onSave,
   onRemove,
+  onToggleSoldOut,
 }: {
   product: Product;
   onSave: (values: FormValues) => void;
   onRemove: () => void;
+  onToggleSoldOut: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const soldOut = product.soldOut ?? false;
 
   if (editing) {
     return (
@@ -183,6 +200,7 @@ function ProductCard({
           category: product.category,
           tone: product.tone,
           image: product.image ?? '',
+          soldOut,
         }}
         onSave={(values) => {
           onSave(values);
@@ -194,7 +212,11 @@ function ProductCard({
   }
 
   return (
-    <div className="rounded-[24px] bg-white p-4">
+    <div
+      className={`rounded-[24px] bg-white p-4 ${
+        soldOut ? 'ring-1 ring-red-200' : ''
+      }`}
+    >
       <div
         className={`relative h-28 overflow-hidden rounded-2xl bg-gradient-to-br ${product.tone}`}
       >
@@ -202,8 +224,18 @@ function ProductCard({
           <img
             src={product.image}
             alt={product.name}
-            className="absolute inset-0 h-full w-full object-cover"
+            className={`absolute inset-0 h-full w-full object-cover ${
+              soldOut ? 'grayscale' : ''
+            }`}
           />
+        )}
+
+        {soldOut && (
+          <div className="absolute inset-0 grid place-items-center bg-black/30">
+            <span className="rounded-full bg-red-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+              Agotado
+            </span>
+          </div>
         )}
 
         <span className="absolute left-3 top-3 rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-black/50">
@@ -227,6 +259,7 @@ function ProductCard({
         <div className="flex shrink-0 gap-1.5">
           <button
             onClick={() => setEditing(true)}
+            aria-label={`Editar ${product.name}`}
             className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
           >
             <Pencil size={13} />
@@ -235,6 +268,7 @@ function ProductCard({
           {confirmingDelete ? (
             <button
               onClick={onRemove}
+              aria-label={`Confirmar eliminación de ${product.name}`}
               className="grid h-8 w-8 place-items-center rounded-full bg-red-500 text-white transition hover:bg-red-600"
             >
               <Check size={13} />
@@ -242,6 +276,7 @@ function ProductCard({
           ) : (
             <button
               onClick={() => setConfirmingDelete(true)}
+              aria-label={`Eliminar ${product.name}`}
               className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500"
             >
               <Trash2 size={13} />
@@ -251,6 +286,7 @@ function ProductCard({
           {confirmingDelete && (
             <button
               onClick={() => setConfirmingDelete(false)}
+              aria-label="Cancelar eliminación"
               className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10"
             >
               <X size={13} />
@@ -258,6 +294,18 @@ function ProductCard({
           )}
         </div>
       </div>
+
+      <button
+        onClick={onToggleSoldOut}
+        className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition ${
+          soldOut
+            ? 'bg-[#4e0611] text-white hover:bg-[#36040c]'
+            : 'bg-[#f8edef] text-black/60 hover:bg-black/10 hover:text-[#4e0611]'
+        }`}
+      >
+        {soldOut ? <Eye size={13} /> : <EyeOff size={13} />}
+        {soldOut ? 'Volver a disponible' : 'Marcar como agotado'}
+      </button>
     </div>
   );
 }
@@ -342,6 +390,9 @@ export function AdminProductsView({
             product={product}
             onSave={(values) => updateProduct(product.id, values)}
             onRemove={() => removeProduct(product.id)}
+            onToggleSoldOut={() =>
+              updateProduct(product.id, { soldOut: !product.soldOut })
+            }
           />
         ))}
       </div>

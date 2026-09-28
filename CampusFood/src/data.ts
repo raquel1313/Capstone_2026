@@ -16,6 +16,7 @@ export type Product = {
   category: string;
   tone: string;
   image?: string;
+  soldOut?: boolean;
 };
 
 export const products: Product[] = [

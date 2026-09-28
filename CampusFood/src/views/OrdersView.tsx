@@ -99,49 +99,73 @@ export function OrdersView({
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((product) => (
-            <div
-              key={product.id}
-              className="rounded-3xl bg-white p-3"
-            >
+          {filtered.map((product) => {
+            const soldOut = product.soldOut ?? false;
+
+            return (
               <div
-                className={`relative h-40 overflow-hidden rounded-2xl bg-gradient-to-br ${product.tone}`}
+                key={product.id}
+                className="rounded-3xl bg-white p-3"
               >
-                {product.image && (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                )}
+                <div
+                  className={`relative h-40 overflow-hidden rounded-2xl bg-gradient-to-br ${product.tone}`}
+                >
+                  {product.image && (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className={`absolute inset-0 h-full w-full object-cover ${
+                        soldOut ? 'grayscale' : ''
+                      }`}
+                    />
+                  )}
 
-                <div className="absolute left-4 top-4 rounded-full bg-white/65 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-black/50">
-                  {product.category}
+                  {soldOut && (
+                    <div className="absolute inset-0 grid place-items-center bg-black/30">
+                      <span className="rounded-full bg-red-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+                        Agotado
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="absolute left-4 top-4 rounded-full bg-white/65 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-black/50">
+                    {product.category}
+                  </div>
+                </div>
+
+                <div className="p-2 pt-4">
+                  <p className="font-semibold">{product.name}</p>
+
+                  <p className="mt-1 text-xs text-black/45">
+                    {product.description}
+                  </p>
+
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-sm font-semibold">
+                      {formatPrice(product.price)}
+                    </span>
+
+                    <button
+                      onClick={() => addToCart(product)}
+                      disabled={soldOut}
+                      aria-label={
+                        soldOut
+                          ? `${product.name} agotado`
+                          : `Agregar ${product.name}`
+                      }
+                      className={`grid h-9 w-9 place-items-center rounded-full text-white transition ${
+                        soldOut
+                          ? 'cursor-not-allowed bg-black/25'
+                          : 'bg-[#252525] hover:bg-[#4e0611]'
+                      }`}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div className="p-2 pt-4">
-                <p className="font-semibold">{product.name}</p>
-
-                <p className="mt-1 text-xs text-black/45">
-                  {product.description}
-                </p>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-sm font-semibold">
-                    {formatPrice(product.price)}
-                  </span>
-
-                  <button
-                    onClick={() => addToCart(product)}
-                    className="grid h-9 w-9 place-items-center rounded-full bg-[#252525] text-white hover:bg-[#4e0611]"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

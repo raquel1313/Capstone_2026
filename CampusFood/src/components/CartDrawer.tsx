@@ -16,6 +16,7 @@ export function CartDrawer({
   clearCart,
   goToOrders,
   addOrder,
+  soldOutIds,
 }: {
   cart: CartItem[];
   subtotal: number;
@@ -24,11 +25,17 @@ export function CartDrawer({
   clearCart: () => void;
   goToOrders: () => void;
   addOrder: (cart: CartItem[], subtotal: number) => string;
+  soldOutIds: number[];
 }) {
   const [ordered, setOrdered] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
+  const soldOut = new Set(soldOutIds);
+  const hasSoldOut = cart.some((item) => soldOut.has(item.id));
+
   const handleOrder = () => {
+    if (hasSoldOut) return;
+
     const number = addOrder(cart, subtotal);
     setOrderNumber(number);
     setOrdered(true);
@@ -57,6 +64,7 @@ export function CartDrawer({
 
           <button
             onClick={handleClose}
+            aria-label="Cerrar carrito"
             className="grid h-10 w-10 place-items-center rounded-full bg-[#f5f5f3] text-black/55"
           >
             <X size={18} />
@@ -123,62 +131,94 @@ export function CartDrawer({
           </div>
         ) : (
           <>
+            {hasSoldOut && (
+              <p
+                role="alert"
+                className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+              >
+                Algunos productos se agotaron. Quítalos del carrito para
+                confirmar tu pedido.
+              </p>
+            )}
+
             <div className="flex-1 space-y-4 overflow-y-auto py-8">
-              {cart.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 border-b border-black/5 pb-4"
-                >
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#f5f5f3]">
-                    {item.image && (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                  </div>
+              {cart.map((item) => {
+                const isSoldOut = soldOut.has(item.id);
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
-                      {item.name}
-                    </p>
-
-                    <p className="mt-1 text-xs text-black/45">
-                      {formatPrice(item.price)}
-                    </p>
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="grid h-6 w-6 place-items-center rounded-full bg-[#f5f5f3]"
-                      >
-                        <Minus size={12} />
-                      </button>
-
-                      <span className="w-4 text-center text-xs font-semibold">
-                        {item.quantity}
-                      </span>
-
-                      <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="grid h-6 w-6 place-items-center rounded-full bg-[#4e0611] text-white"
-                      >
-                        <Plus size={12} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      updateQuantity(item.id, -item.quantity)
-                    }
-                    className="text-black/25 hover:text-red-500"
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 border-b border-black/5 pb-4"
                   >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#f5f5f3]">
+                      {item.image && (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className={`h-full w-full object-cover ${
+                            isSoldOut ? 'opacity-60 grayscale' : ''
+                          }`}
+                        />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold">
+                          {item.name}
+                        </p>
+
+                        {isSoldOut && (
+                          <span className="shrink-0 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase text-red-700">
+                            Agotado
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-xs text-black/45">
+                        {formatPrice(item.price)}
+                      </p>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(item.id, -1)}
+                          aria-label={`Quitar una unidad de ${item.name}`}
+                          className="grid h-6 w-6 place-items-center rounded-full bg-[#f5f5f3]"
+                        >
+                          <Minus size={12} />
+                        </button>
+
+                        <span className="w-4 text-center text-xs font-semibold">
+                          {item.quantity}
+                        </span>
+
+                        <button
+                          onClick={() => updateQuantity(item.id, 1)}
+                          disabled={isSoldOut}
+                          aria-label={`Agregar una unidad de ${item.name}`}
+                          className={`grid h-6 w-6 place-items-center rounded-full text-white ${
+                            isSoldOut
+                              ? 'cursor-not-allowed bg-black/25'
+                              : 'bg-[#4e0611]'
+                          }`}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        updateQuantity(item.id, -item.quantity)
+                      }
+                      aria-label={`Eliminar ${item.name} del carrito`}
+                      className="text-black/25 hover:text-red-500"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="border-t border-black/5 pt-5">
@@ -192,7 +232,8 @@ export function CartDrawer({
 
               <button
                 onClick={handleOrder}
-                className="mt-5 w-full rounded-full bg-[#4e0611] py-4 text-sm font-semibold text-white transition hover:bg-[#36040c]"
+                disabled={hasSoldOut}
+                className="mt-5 w-full rounded-full bg-[#4e0611] py-4 text-sm font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#4e0611]"
               >
                 Confirmar pedido
                 <ArrowRight className="ml-2 inline" size={16} />

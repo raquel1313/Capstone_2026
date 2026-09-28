@@ -7,6 +7,9 @@ export function useCart() {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const addToCart = (product: Product) => {
+    // Un producto agotado no se puede agregar
+    if (product.soldOut) return;
+
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       return existing
