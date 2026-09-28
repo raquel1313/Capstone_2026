@@ -10,6 +10,8 @@ import { formatPrice } from '@/data';
 
 const CATEGORY_OPTIONS = ['Dulce', 'Bebidas', 'Snacks'];
 
+type AvailabilityFilter = 'todos' | 'disponibles' | 'agotados';
+
 const TONE_OPTIONS = [
   { label: 'Ámbar', value: 'from-amber-100 to-orange-200' },
   { label: 'Amarillo', value: 'from-yellow-100 to-amber-200' },
@@ -330,20 +332,37 @@ export function AdminProductsView({
 }) {
   const [adding, setAdding] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('todas');
+  const [availabilityFilter, setAvailabilityFilter] =
+    useState<AvailabilityFilter>('todos');
 
   const categories = [
     'todas',
     ...Array.from(new Set(products.map((p) => p.category))),
   ];
 
-  const filtered =
+  const soldOutCount = products.filter((p) => p.soldOut).length;
+
+  const filteredByCategory =
     categoryFilter === 'todas'
       ? products
       : products.filter((p) => p.category === categoryFilter);
 
+  const filteredByAvailability = filteredByCategory.filter((p) => {
+    const isSoldOut = p.soldOut ?? false;
+
+    if (availabilityFilter === 'disponibles') return !isSoldOut;
+    if (availabilityFilter === 'agotados') return isSoldOut;
+    return true;
+  });
+
+  // Disponibles primero, agotados al final
+  const filtered = [...filteredByAvailability].sort(
+    (a, b) => Number(a.soldOut ?? false) - Number(b.soldOut ?? false)
+  );
+
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
           {categories.map((category) => (
             <button
@@ -377,6 +396,41 @@ export function AdminProductsView({
         </div>
       </div>
 
+      <div className="mb-5 flex gap-2">
+        <button
+          onClick={() => setAvailabilityFilter('todos')}
+          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+            availabilityFilter === 'todos'
+              ? 'bg-[#252525] text-white'
+              : 'bg-white text-black/45 hover:bg-black/5'
+          }`}
+        >
+          Todos
+        </button>
+
+        <button
+          onClick={() => setAvailabilityFilter('disponibles')}
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+            availabilityFilter === 'disponibles'
+              ? 'bg-[#252525] text-white'
+              : 'bg-white text-black/45 hover:bg-black/5'
+          }`}
+        >
+          <Eye size={12} /> Disponibles
+        </button>
+
+        <button
+          onClick={() => setAvailabilityFilter('agotados')}
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+            availabilityFilter === 'agotados'
+              ? 'bg-red-600 text-white'
+              : 'bg-white text-black/45 hover:bg-red-50 hover:text-red-600'
+          }`}
+        >
+          <EyeOff size={12} /> Agotados{soldOutCount > 0 ? ` (${soldOutCount})` : ''}
+        </button>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {adding && (
           <ProductForm
@@ -406,7 +460,11 @@ export function AdminProductsView({
         <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-14 text-center">
           <Package className="text-black/20" size={32} />
           <p className="mt-4 text-sm text-black/45">
-            No hay productos en esta categoría.
+            {availabilityFilter === 'agotados'
+              ? 'No hay productos agotados en esta categoría.'
+              : availabilityFilter === 'disponibles'
+                ? 'No hay productos disponibles en esta categoría.'
+                : 'No hay productos en esta categoría.'}
           </p>
         </div>
       )}

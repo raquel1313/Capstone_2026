@@ -12,6 +12,8 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 
 import { AdminMobileNav } from '@/components/admin/AdminMobileNav';
 
+import { AdminDashboardView } from '@/views/admin/AdminDashboardView';
+
 import { AdminOrdersView } from '@/views/admin/AdminOrdersView';
 
 import { AdminMenuView } from '@/views/admin/AdminMenuView';
@@ -23,6 +25,7 @@ import { AdminVotesView } from '@/views/admin/AdminVotesView';
 import { AdminUsersView } from '@/views/admin/AdminUsersView';
 
 const TITLES: Record<AdminView, string> = {
+  dashboard: 'Dashboard',
   orders: 'Pedidos',
   menu: 'Menú semanal',
   products: 'Productos de cafetería',
@@ -90,7 +93,7 @@ export function AdminLayout({
   reopenPoll: () => void;
   deletePoll: () => void;
 }) {
-  const [adminView, setAdminView] = useState<AdminView>('orders');
+  const [adminView, setAdminView] = useState<AdminView>('dashboard');
 
   return (
     <div className="flex min-h-screen bg-[#f8edef]">
@@ -121,6 +124,15 @@ export function AdminLayout({
         </header>
 
         <div className="p-5 sm:p-8 lg:p-10">
+          {adminView === 'dashboard' && (
+            <AdminDashboardView
+              menu={menu}
+              getReactionCounts={getReactionCounts}
+              poll={poll}
+              isPollOpen={isPollOpen}
+            />
+          )}
+
           {adminView === 'orders' && (
             <AdminOrdersView
               orders={orders}

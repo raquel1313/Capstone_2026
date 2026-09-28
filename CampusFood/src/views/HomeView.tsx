@@ -125,6 +125,11 @@ export function HomeView({
     setConfetti(createConfetti());
   };
 
+  // Disponibles primero, agotados al final, antes de recortar a 8 para el carrusel
+  const breakProducts = [...products]
+    .sort((a, b) => Number(a.soldOut ?? false) - Number(b.soldOut ?? false))
+    .slice(0, 8);
+
   return (
     <div className="space-y-7 pb-5">
       {/* Buscador */}
@@ -243,7 +248,7 @@ export function HomeView({
 
         {/* Los márgenes negativos hacen que las tarjetas lleguen hasta el borde de la sección al deslizar */}
         <div className="-mx-6 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-6 px-6 pb-2 [scrollbar-width:none] sm:-mx-7 sm:scroll-px-7 sm:px-7 [&::-webkit-scrollbar]:hidden">
-          {products.slice(0, 8).map((product) => (
+          {breakProducts.map((product) => (
             <div
               key={product.id}
               className="w-40 shrink-0 snap-start sm:w-48 lg:w-52"

@@ -43,6 +43,12 @@ export function OrdersView({
     return matchesCategory && matchesQuery;
   });
 
+  // Disponibles primero, agotados al final. El orden es estable,
+  // así que entre productos con el mismo estado se mantiene el orden original.
+  const sortedProducts = [...filteredProducts].sort(
+    (a, b) => Number(a.soldOut ?? false) - Number(b.soldOut ?? false)
+  );
+
   return (
     <div className="pb-5">
       <div className="mb-8">
@@ -106,13 +112,13 @@ export function OrdersView({
         ))}
       </div>
 
-      {filteredProducts.length === 0 ? (
+      {sortedProducts.length === 0 ? (
         <p className="text-sm text-black/45">
           No hay productos disponibles para esta búsqueda.
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-          {filteredProducts.map((product) => {
+          {sortedProducts.map((product) => {
             const isSoldOut = product.soldOut ?? false;
 
             return (

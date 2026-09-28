@@ -1,8 +1,9 @@
-import { LayoutGrid, LogOut, Package, UtensilsCrossed, Users, Vote } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, LogOut, Package, UtensilsCrossed, Users, Vote } from 'lucide-react';
 
 import type { AdminView } from '@/types';
 
 const NAV_ITEMS: { id: AdminView; label: string; icon: typeof LayoutGrid }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'orders', label: 'Pedidos', icon: LayoutGrid },
   { id: 'menu', label: 'Menú semanal', icon: UtensilsCrossed },
   { id: 'products', label: 'Productos', icon: Package },

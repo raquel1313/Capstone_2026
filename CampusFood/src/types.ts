@@ -2,7 +2,7 @@ export type { Dish, LunchDay, Product } from '@/data';
 
 export type View = 'home' | 'menu' | 'orders' | 'profile';
 
-export type AdminView = 'menu' | 'products' | 'orders' | 'votes' | 'users';
+export type AdminView = 'dashboard' | 'menu' | 'products' | 'orders' | 'votes' | 'users';
 
 export type OrderStatus = 'pendiente' | 'listo';
 
