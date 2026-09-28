@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Clock3 } from 'lucide-react';
 import type { LunchDay } from '@/data';
 import Image from 'next/image';
@@ -28,12 +28,10 @@ export function MenuView({
 
   const day = lunchDays[Math.min(selectedDay, Math.max(lunchDays.length - 1, 0))];
 
-  // Al cambiar de día, selecciona el primer plato disponible (o el primero si todos están agotados)
-  useEffect(() => {
-    if (!day) return;
-    const firstAvailable = day.dishes.find((dish) => !dish.soldOut) ?? day.dishes[0];
-    setSelectedDishId(firstAvailable ? firstAvailable.id : null);
-  }, [day?.id]);
+  const firstAvailableDish =
+  day?.dishes.find((dish) => !dish.soldOut) ??
+  day?.dishes[0] ??
+  null;
 
   if (lunchDays.length === 0 || !day) {
     return (
@@ -43,7 +41,9 @@ export function MenuView({
     );
   }
 
-  const dish = day.dishes.find((d) => d.id === selectedDishId) ?? day.dishes[0] ?? null;
+  const dish =
+  day.dishes.find((d) => d.id === selectedDishId) ??
+  firstAvailableDish;
   const dayCounts = getReactionCounts(day.id);
   const currentReaction = getUserReaction(day.id);
   const totalReactions = Object.values(dayCounts).reduce((a, b) => a + b, 0);
@@ -71,7 +71,7 @@ export function MenuView({
             return (
               <button
                 key={d.id}
-                onClick={() => setSelectedDay(index)}
+                onClick={() => {setSelectedDay(index); setSelectedDishId(null);}}
                 aria-pressed={active}
                 className={`flex flex-col items-center rounded-xl px-2 py-4 transition ${
                   active ? '' : 'opacity-60 hover:bg-[#4e0611]/5 hover:opacity-100'

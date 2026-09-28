@@ -731,8 +731,7 @@ export function AdminMenuView({
           />
 
           <p className="mt-4 text-sm text-black/45">
-            No hay menús cargados. Agrega el primero con el botón
-            "Nuevo día".
+            No hay menús cargados. Agrega el primero con el botón «Nuevo día».
           </p>
         </div>
       )}

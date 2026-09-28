@@ -2,13 +2,18 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import logo from '@/assets/images/logo.png';
 
-const COUNT_DURATION_MS = 2500; // cuánto tarda en llegar a 100%
+const COUNT_DURATION_MS = 2500;
 
-export function SplashScreen({ done }: { done: boolean }) {
+interface SplashScreenProps {
+  done: boolean;
+}
+
+export function SplashScreen({ done }: SplashScreenProps) {
   const [progress, setProgress] = useState(0);
 
-  // Conteo de 0 a 100 y se detiene
   useEffect(() => {
+    if (done) return;
+
     let frame: number;
     const start = performance.now();
 
@@ -17,7 +22,10 @@ export function SplashScreen({ done }: { done: boolean }) {
         100,
         Math.round(((now - start) / COUNT_DURATION_MS) * 100)
       );
-      setProgress((prev) => Math.max(prev, value));
+
+      setProgress((previousProgress) =>
+        Math.max(previousProgress, value)
+      );
 
       if (value < 100) {
         frame = requestAnimationFrame(tick);
@@ -25,13 +33,13 @@ export function SplashScreen({ done }: { done: boolean }) {
     };
 
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, []);
 
-  // Si la app termina de cargar antes, salta directo a 100
-  useEffect(() => {
-    if (done) setProgress(100);
+    return () => {
+      cancelAnimationFrame(frame);
+    };
   }, [done]);
+
+  const displayedProgress = done ? 100 : progress;
 
   return (
     <div
@@ -41,14 +49,12 @@ export function SplashScreen({ done }: { done: boolean }) {
           : 'scale-100 opacity-100 blur-0 duration-200'
       }`}
     >
-      {/* LOGO CON SALTO EN LOOP */}
       <Image
         src={logo}
         alt="Casino CampusFood"
         className="h-40 w-auto animate-bounce"
       />
 
-      {/* NOMBRE DE LA APP */}
       <p
         className="mt-6 text-5xl font-semibold tracking-wide text-white"
         style={{ fontFamily: "'Caveat', cursive" }}
@@ -56,9 +62,8 @@ export function SplashScreen({ done }: { done: boolean }) {
         CampusFood
       </p>
 
-      {/* CONTEO DE PORCENTAJE */}
       <p className="mt-3 text-xl font-medium tabular-nums text-white/80">
-        {progress}%
+        {displayedProgress}%
       </p>
     </div>
   );
