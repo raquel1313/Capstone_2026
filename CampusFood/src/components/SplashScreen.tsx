@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-
+import Image from 'next/image';
 import logo from '@/assets/images/logo.png';
 
 const COUNT_DURATION_MS = 2500; // cuánto tarda en llegar a 100%
@@ -42,7 +42,7 @@ export function SplashScreen({ done }: { done: boolean }) {
       }`}
     >
       {/* LOGO CON SALTO EN LOOP */}
-      <img
+      <Image
         src={logo}
         alt="Casino CampusFood"
         className="h-40 w-auto animate-bounce"

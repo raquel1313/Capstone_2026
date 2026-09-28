@@ -7,6 +7,7 @@ import foto6 from '@/assets/images/foto6.jpg';
 import foto7 from '@/assets/images/foto7.jpg';
 import foto8 from '@/assets/images/foto8.jpg';
 import foto9 from '@/assets/images/foto9.jpg';
+import type { StaticImageData } from 'next/image';
 
 export type Product = {
   id: number;
@@ -15,7 +16,7 @@ export type Product = {
   price: number;
   category: string;
   tone: string;
-  image?: string;
+  image?: string | StaticImageData;
 };
 
 export const products: Product[] = [
@@ -32,7 +33,7 @@ export type Dish = {
   name: string;
   detail: string;
   color: string;
-  image?: string;
+  image?: string | StaticImageData;
   soldOut?: boolean;
 };
 

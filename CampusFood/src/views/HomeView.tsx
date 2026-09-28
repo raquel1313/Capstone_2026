@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useState, type CSSProperties } from 'react';
 
+import Image from 'next/image';
+
 import { Check, ChevronRight, Clock3, Search, Vote } from 'lucide-react';
 
 import type { View } from '@/types';
@@ -137,7 +139,7 @@ export function HomeView({
       {/* Banner promocional compacto */}
       <section className="relative min-h-[150px] overflow-hidden rounded-[28px] bg-[#4e0611] p-5 text-white sm:min-h-[190px] sm:p-7">
         {/* La imagen ocupa todo el alto del banner y se pega a la esquina superior derecha */}
-        <img
+        <Image
           src={brazo}
           alt=""
           aria-hidden="true"
@@ -198,7 +200,7 @@ export function HomeView({
                 className="flex aspect-square min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] motion-reduce:transition-none sm:gap-2 sm:p-2 xl:aspect-auto xl:flex-row xl:justify-start xl:gap-3 xl:px-4 xl:py-3"
               >
                 <span className="block aspect-square w-3/5 shrink-0 overflow-hidden rounded-full bg-[#f5f5f3] xl:w-12">
-                  <img
+                  <Image
                     src={item.image}
                     alt=""
                     aria-hidden="true"
@@ -318,7 +320,7 @@ export function HomeView({
                 >
                   {representative?.image && (
                     <div className="h-44 w-full overflow-hidden sm:h-52">
-                      <img
+                      <Image
                         src={representative.image}
                         alt={representative.name}
                         className={`h-full w-full object-cover ${allSoldOut ? 'grayscale' : ''}`}

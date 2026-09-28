@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import Image from 'next/image';
+
 import { Clock } from 'lucide-react';
 
 import type { Order, OrderStatus } from '@/types';
@@ -60,7 +62,7 @@ export function AdminOrdersView({
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-14 text-center">
-          <img
+          <Image
             src={logo}
             alt=""
             className="h-14 w-auto animate-bounce"

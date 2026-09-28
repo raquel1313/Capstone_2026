@@ -4,6 +4,8 @@ import { Plus, Search } from 'lucide-react';
 
 import type { Product } from '@/data';
 
+import Image from 'next/image';
+
 import { formatPrice } from '@/data';
 
 export function OrdersView({
@@ -108,7 +110,7 @@ export function OrdersView({
                 className={`relative h-40 overflow-hidden rounded-2xl bg-gradient-to-br ${product.tone}`}
               >
                 {product.image && (
-                  <img
+                  <Image
                     src={product.image}
                     alt={product.name}
                     className="absolute inset-0 h-full w-full object-cover"

@@ -6,6 +6,8 @@ import type { CartItem } from '@/hooks/useCart';
 
 import { formatPrice } from '@/data';
 
+import Image from 'next/image';
+
 import logo from '@/assets/images/logo2.png';
 
 export function CartDrawer({
@@ -97,7 +99,7 @@ export function CartDrawer({
           </div>
         ) : cart.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <img
+            <Image
               src={logo}
               alt=""
               className="h-16 w-auto animate-bounce"
@@ -131,7 +133,7 @@ export function CartDrawer({
                 >
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#f5f5f3]">
                     {item.image && (
-                      <img
+                      <Image
                         src={item.image}
                         alt={item.name}
                         className="h-full w-full object-cover"

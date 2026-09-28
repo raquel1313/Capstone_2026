@@ -4,6 +4,8 @@ import { Bell, CheckCircle2 } from 'lucide-react';
 
 import type { OrderNotification } from '@/hooks/useOrderNotifications';
 
+import Image from 'next/image';
+
 import logo from '@/assets/images/logo2.png';
 
 const DISMISS_THRESHOLD = 80; // px que hay que arrastrar para que se descarte
@@ -161,7 +163,7 @@ export function NotificationsBell({
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <img src={logo} alt="" className="h-10 w-auto animate-bounce" />
+                <Image src={logo} alt="" className="h-10 w-auto animate-bounce" />
 
                 <p className="mt-3 text-xs text-black/40">No tienes notificaciones todavía.</p>
               </div>

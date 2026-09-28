@@ -4,6 +4,8 @@ import { Check, Package, Plus, Pencil, RotateCcw, Trash2, X } from 'lucide-react
 
 import type { Product } from '@/data';
 
+import Image from 'next/image';
+
 import { formatPrice } from '@/data';
 
 const CATEGORY_OPTIONS = ['Dulce', 'Bebidas', 'Snacks'];
@@ -182,7 +184,10 @@ function ProductCard({
           price: product.price,
           category: product.category,
           tone: product.tone,
-          image: product.image ?? '',
+          image:
+            typeof product.image === 'string'
+              ? product.image
+              : product.image?.src ?? '',
         }}
         onSave={(values) => {
           onSave(values);
@@ -199,7 +204,7 @@ function ProductCard({
         className={`relative h-28 overflow-hidden rounded-2xl bg-gradient-to-br ${product.tone}`}
       >
         {product.image && (
-          <img
+          <Image
             src={product.image}
             alt={product.name}
             className="absolute inset-0 h-full w-full object-cover"

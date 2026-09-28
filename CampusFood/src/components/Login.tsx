@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import Image from 'next/image';
+
 import { Lock, User as UserIcon } from 'lucide-react';
 
 import logo from '@/assets/images/logo.png';
@@ -36,7 +38,7 @@ export function Login({ onLogin }: { onLogin: (username: string, password: strin
 
         <div className="flex flex-col items-center text-center">
 
-          <img
+          <Image
             src={logo}
             alt="Casino CampusFood"
             className="h-20 w-auto"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Image from 'next/image';
 
 import {
   Calendar,
@@ -264,7 +265,10 @@ function DishRow({
           name: dish.name,
           detail: dish.detail,
           color: dish.color,
-          image: dish.image ?? '',
+          image:
+            typeof dish.image === 'string'
+              ? dish.image
+              : dish.image?.src ?? '',
           soldOut: dish.soldOut ?? false,
         }}
         onSave={(values) => {
@@ -286,7 +290,7 @@ function DishRow({
         className={`h-10 w-10 shrink-0 overflow-hidden rounded-xl ${dish.color}`}
       >
         {dish.image && (
-          <img
+          <Image
             src={dish.image}
             alt={dish.name}
             className="h-full w-full object-cover"

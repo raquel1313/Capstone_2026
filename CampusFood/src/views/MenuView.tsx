@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Clock3 } from 'lucide-react';
 import type { LunchDay } from '@/data';
+import Image from 'next/image';
 import { getDayLabel, getDayNumber, getFullDateLabel } from '@/data';
 import { REACTIONS } from '@/hooks/useReactions';
 import { HandCircle } from '@/components/HandCircle';
@@ -121,7 +122,7 @@ export function MenuView({
         <section className="overflow-hidden rounded-[28px] bg-white">
           <div className={`h-40 ${dish.color} relative overflow-hidden p-7`}>
             {dish.image && (
-              <img
+              <Image
                 src={dish.image}
                 alt={dish.name}
                 className={`absolute inset-0 h-full w-full object-cover ${dish.soldOut ? 'grayscale' : ''}`}

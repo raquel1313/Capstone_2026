@@ -1,5 +1,7 @@
 import { Plus } from 'lucide-react';
 
+import Image from 'next/image';
+
 import type { Product } from '@/data';
 
 import { formatPrice } from '@/data';
@@ -17,7 +19,7 @@ export function ProductCard({
         className={`relative flex h-24 items-end justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${product.tone} p-3`}
       >
         {product.image && (
-          <img
+          <Image
             src={product.image}
             alt={product.name}
             className="absolute inset-0 h-full w-full object-cover"
