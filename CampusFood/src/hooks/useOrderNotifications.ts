@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Order } from '@/types';
 
 export type OrderNotification = {
@@ -12,95 +12,135 @@ export type OrderNotification = {
 const STORAGE_PREFIX = 'campusfood_notifications_';
 const DISMISSED_PREFIX = 'campusfood_dismissed_orders_';
 
-function loadNotifications(username: string): OrderNotification[] {
+function readJSON<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + username);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function loadDismissedOrderIds(username: string): string[] {
-  try {
-    const raw = localStorage.getItem(DISMISSED_PREFIX + username);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+function writeJSON(key: string, value: unknown) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function useOrderNotifications(orders: Order[], username: string | null) {
-  const [notifications, setNotifications] = useState<OrderNotification[]>(() =>
-    username ? loadNotifications(username) : []
-  );
-  const [dismissedOrderIds, setDismissedOrderIds] = useState<string[]>(() =>
-    username ? loadDismissedOrderIds(username) : []
+export function useOrderNotifications(
+  orders: Order[],
+  username: string | null
+) {
+  // Sube cada vez que se escribe en el almacenamiento, para volver a leerlo
+  const [version, setVersion] = useState(0);
+  const refresh = () => setVersion((v) => v + 1);
+
+  const notifications = useMemo(
+    () =>
+      username
+        ? readJSON<OrderNotification[]>(STORAGE_PREFIX + username, [])
+        : [],
+    [username, version]
   );
 
-  useEffect(() => {
-    setNotifications(username ? loadNotifications(username) : []);
-    setDismissedOrderIds(username ? loadDismissedOrderIds(username) : []);
-  }, [username]);
-
+  // Crea un aviso por cada pedido listo que no se haya avisado ni descartado
   useEffect(() => {
     if (!username) return;
 
-    setNotifications((current) => {
-      const existingOrderIds = new Set(current.map((n) => n.orderId));
-      const newOnes: OrderNotification[] = [];
+    const current = readJSON<OrderNotification[]>(
+      STORAGE_PREFIX + username,
+      []
+    );
 
-      orders.forEach((order) => {
-        if (order.username !== username) return;
-        if (order.status !== 'listo') return;
-        if (existingOrderIds.has(order.id)) return;
-        if (dismissedOrderIds.includes(order.id)) return; // ya la descartaste antes
+    const dismissed = readJSON<string[]>(DISMISSED_PREFIX + username, []);
 
-        newOnes.push({
-          id: `notif-${Date.now()}-${order.id}`,
-          orderId: order.id,
-          message: `Tu pedido ${order.id} está listo para retirar.`,
-          read: false,
-          createdAt: new Date().toISOString(),
-        });
+    const alreadyHandled = new Set([
+      ...current.map((n) => n.orderId),
+      ...dismissed,
+    ]);
+
+    const created: OrderNotification[] = [];
+
+    orders.forEach((order) => {
+      if (order.username !== username) return;
+      if (order.status !== 'listo') return;
+      if (alreadyHandled.has(order.id)) return;
+
+      created.push({
+        id: `notif-${Date.now()}-${order.id}`,
+        orderId: order.id,
+        message: `Tu pedido ${order.id} está listo para retirar.`,
+        read: false,
+        createdAt: new Date().toISOString(),
       });
-
-      if (newOnes.length === 0) return current;
-      return [...newOnes, ...current];
     });
-  }, [orders, username, dismissedOrderIds]);
 
-  useEffect(() => {
-    if (!username) return;
-    localStorage.setItem(STORAGE_PREFIX + username, JSON.stringify(notifications));
-  }, [notifications, username]);
+    if (created.length === 0) return;
 
-  useEffect(() => {
-    if (!username) return;
-    localStorage.setItem(DISMISSED_PREFIX + username, JSON.stringify(dismissedOrderIds));
-  }, [dismissedOrderIds, username]);
+    writeJSON(STORAGE_PREFIX + username, [...created, ...current]);
+    refresh();
+  }, [orders, username]);
 
   const markAsRead = (id: string) => {
-    setNotifications((current) => current.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    if (!username) return;
+
+    const key = STORAGE_PREFIX + username;
+    const current = readJSON<OrderNotification[]>(key, []);
+
+    writeJSON(
+      key,
+      current.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+
+    refresh();
   };
 
   const markAllAsRead = () => {
-    setNotifications((current) => current.map((n) => ({ ...n, read: true })));
+    if (!username) return;
+
+    const key = STORAGE_PREFIX + username;
+    const current = readJSON<OrderNotification[]>(key, []);
+
+    writeJSON(
+      key,
+      current.map((n) => ({ ...n, read: true }))
+    );
+
+    refresh();
   };
 
   const dismissNotification = (id: string) => {
-    setNotifications((current) => {
-      const target = current.find((n) => n.id === id);
-      if (target) {
-        setDismissedOrderIds((prevDismissed) =>
-          prevDismissed.includes(target.orderId) ? prevDismissed : [...prevDismissed, target.orderId]
-        );
-      }
-      return current.filter((n) => n.id !== id);
-    });
+    if (!username) return;
+
+    const key = STORAGE_PREFIX + username;
+    const dismissedKey = DISMISSED_PREFIX + username;
+
+    const current = readJSON<OrderNotification[]>(key, []);
+    const target = current.find((n) => n.id === id);
+
+    if (!target) return;
+
+    // Primero se registra el pedido como descartado y después se quita el aviso,
+    // así el efecto de arriba nunca vuelve a crearlo
+    const dismissed = readJSON<string[]>(dismissedKey, []);
+
+    if (!dismissed.includes(target.orderId)) {
+      writeJSON(dismissedKey, [...dismissed, target.orderId]);
+    }
+
+    writeJSON(
+      key,
+      current.filter((n) => n.id !== id)
+    );
+
+    refresh();
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  return { notifications, unreadCount, markAsRead, markAllAsRead, dismissNotification };
+  return {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    dismissNotification,
+  };
 }
