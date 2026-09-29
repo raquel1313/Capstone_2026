@@ -6,6 +6,8 @@ import type { AdminView, Dish, LunchDay, Order, OrderStatus } from '@/types';
 
 import type { Product } from '@/data';
 
+import type { User } from '@/hooks/useAuth';
+
 import type { VotePoll } from '@/hooks/useVotes';
 
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
@@ -34,6 +36,7 @@ const TITLES: Record<AdminView, string> = {
 };
 
 export function AdminLayout({
+  user,
   onLogout,
   orders,
   updateOrderStatus,
@@ -53,12 +56,14 @@ export function AdminLayout({
   removeProduct,
   resetProducts,
   poll,
+  pollHistory,
   isPollOpen,
   createPoll,
   closePoll,
   reopenPoll,
   deletePoll,
 }: {
+  user: User;
   onLogout: () => void;
   orders: Order[];
   updateOrderStatus: (id: string, status: OrderStatus) => void;
@@ -82,6 +87,7 @@ export function AdminLayout({
   removeProduct: (id: number) => void;
   resetProducts: () => void;
   poll: VotePoll | null;
+  pollHistory: VotePoll[];
   isPollOpen: boolean;
   createPoll: (
     question: string,
@@ -130,6 +136,9 @@ export function AdminLayout({
               getReactionCounts={getReactionCounts}
               poll={poll}
               isPollOpen={isPollOpen}
+              pollHistory={pollHistory}
+              orders={orders}
+              adminName={user.name}
             />
           )}
 

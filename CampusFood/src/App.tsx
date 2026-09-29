@@ -107,6 +107,7 @@ function App() {
 
   const {
     poll,
+    history: pollHistory,
     isOpen: isPollOpen,
     hasVoted,
     createPoll,
@@ -147,6 +148,7 @@ function App() {
   if (user.role === 'admin') {
     return (
       <AdminLayout
+        user={user}
         onLogout={logout}
         orders={orders}
         updateOrderStatus={updateStatus}
@@ -166,11 +168,13 @@ function App() {
         removeProduct={removeProduct}
         resetProducts={resetProducts}
         poll={poll}
+        pollHistory={pollHistory}
         isPollOpen={isPollOpen}
         createPoll={createPoll}
         closePoll={closePoll}
         reopenPoll={reopenPoll}
         deletePoll={deletePoll}
+        
       />
     );
   }

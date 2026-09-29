@@ -285,14 +285,13 @@ export function HomeView({
             Ver todo
           </button>
         </div>
-
         <div className="-mx-6 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-6 px-6 pb-4 pt-1 [scrollbar-width:none] sm:-mx-7 sm:scroll-px-7 sm:px-7 [&::-webkit-scrollbar]:hidden">
           {lunchDays.map((item, index) => {
             const isOpen = openDay === item.id;
-            const userReaction = getUserReaction(item.id);
             const availableDishes = item.dishes.filter((d) => !d.soldOut);
-            const representative = availableDishes[0] ?? item.dishes[0];
+            const representative = availableDishes[0] ?? item.dishes[0] ?? null;
             const allSoldOut = item.dishes.length > 0 && availableDishes.length === 0;
+            const userReaction = representative ? getUserReaction(representative.id) : null;
 
             return (
               <div
@@ -368,50 +367,55 @@ export function HomeView({
                 </button>
 
                 {/* Abanico de reacciones: sale de la esquina inferior izquierda */}
-                <div className="absolute bottom-4 left-4 z-20 h-0 w-0">
-                  {REACTIONS.map((reaction, i) => {
-                    const angle =
-                      (Math.PI / 2) * (i / (REACTIONS.length - 1));
+                {representative && (
+                  <div className="absolute bottom-4 left-4 z-20 h-0 w-0">
+                    {REACTIONS.map((reaction, i) => {
+                      const angle =
+                        (Math.PI / 2) * (i / (REACTIONS.length - 1));
 
-                    const x = Math.cos(angle) * ARC_RADIUS;
-                    const y = Math.sin(angle) * ARC_RADIUS;
-                    const isMine = userReaction === reaction.emoji;
+                      const x = Math.cos(angle) * ARC_RADIUS;
+                      const y = Math.sin(angle) * ARC_RADIUS;
+                      const isMine = userReaction === reaction.emoji;
 
-                    return (
-                      <button
-                        key={reaction.emoji}
-                        type="button"
-                        title={reaction.label}
-                        aria-label={reaction.label}
-                        tabIndex={isOpen ? 0 : -1}
-                        onClick={() => {
-                          react(item.id, reaction.emoji);
-                          setOpenDay(null);
-                        }}
-                        className={`absolute left-0 top-0 grid h-9 w-9 place-items-center rounded-full bg-white text-lg shadow-[0_4px_14px_rgba(0,0,0,0.18)] transition duration-300 ease-out hover:scale-110 motion-reduce:transition-none ${
-                          isMine ? 'ring-2 ring-[#4e0611]' : ''
-                        } ${
-                          isOpen
-                            ? 'pointer-events-auto opacity-100'
-                            : 'pointer-events-none opacity-0'
-                        }`}
-                        style={{
-                          transform: isOpen
-                            ? `translate(calc(-50% + ${x}px), calc(-50% - ${y}px)) scale(1)`
-                            : 'translate(-50%, -50%) scale(0.3)',
-                          transitionDelay: isOpen ? `${i * 40}ms` : '0ms',
-                        }}
-                      >
-                        {reaction.emoji}
-                      </button>
-                    );
-                  })}
-                </div>
+                      return (
+                        <button
+                          key={reaction.emoji}
+                          type="button"
+                          title={reaction.label}
+                          aria-label={reaction.label}
+                          tabIndex={isOpen ? 0 : -1}
+                          onClick={() => {
+                            react(representative.id, reaction.emoji);
+                            setOpenDay(null);
+                          }}
+                          className={`absolute left-0 top-0 grid h-9 w-9 place-items-center rounded-full bg-white text-lg shadow-[0_4px_14px_rgba(0,0,0,0.18)] transition duration-300 ease-out hover:scale-110 motion-reduce:transition-none ${
+                            isMine ? 'ring-2 ring-[#4e0611]' : ''
+                          } ${
+                            isOpen
+                              ? 'pointer-events-auto opacity-100'
+                              : 'pointer-events-none opacity-0'
+                          }`}
+                          style={{
+                            transform: isOpen
+                              ? `translate(calc(-50% + ${x}px), calc(-50% - ${y}px)) scale(1)`
+                              : 'translate(-50%, -50%) scale(0.3)',
+                            transitionDelay: isOpen ? `${i * 40}ms` : '0ms',
+                          }}
+                        >
+                          {reaction.emoji}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
-        </div>
+          </div>
       </section>
+
+
+  
 
       {/* Votación */}
       <>

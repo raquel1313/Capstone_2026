@@ -19,9 +19,9 @@ export function MenuView({
   react,
 }: {
   lunchDays: LunchDay[];
-  getReactionCounts: (dayId: string) => Record<string, number>;
-  getUserReaction: (dayId: string) => string | null;
-  react: (dayId: string, emoji: string) => void;
+  getReactionCounts: (dishId: string) => Record<string, number>;
+  getUserReaction: (dishId: string) => string | null;
+  react: (dishId: string, emoji: string) => void;
 }) {
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedDishId, setSelectedDishId] = useState<string | null>(null);
@@ -44,9 +44,10 @@ export function MenuView({
   const dish =
   day.dishes.find((d) => d.id === selectedDishId) ??
   firstAvailableDish;
-  const dayCounts = getReactionCounts(day.id);
-  const currentReaction = getUserReaction(day.id);
-  const totalReactions = Object.values(dayCounts).reduce((a, b) => a + b, 0);
+
+  const dishCounts = dish ? getReactionCounts(dish.id) : {};
+  const currentReaction = dish ? getUserReaction(dish.id) : null;
+  const totalReactions = Object.values(dishCounts).reduce((a, b) => a + b, 0);
 
   return (
     <div className="mx-auto max-w-5xl pb-5">
@@ -153,17 +154,17 @@ export function MenuView({
 
             <div className="mt-7 border-t border-black/5 pt-5">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-black/40">¿Qué te pareció el menú de hoy?</p>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-black/40">¿Qué te pareció este plato?</p>
                 {totalReactions > 0 && <span className="text-xs text-black/40">{totalReactions} reacciones</span>}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {REACTIONS.map(({ emoji, label }) => {
                   const isActive = currentReaction === emoji;
-                  const count = dayCounts[emoji];
+                  const count = dishCounts[emoji];
                   return (
                     <button
                       key={emoji}
-                      onClick={() => react(day.id, emoji)}
+                      onClick={() => react(dish.id, emoji)}
                       title={label}
                       className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition ${
                         isActive ? 'bg-[#4e0611] text-white' : 'bg-black/5 text-black/60 hover:bg-black/10'

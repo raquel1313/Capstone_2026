@@ -16,9 +16,9 @@ export type VotePoll = {
 };
 
 const POLL_KEY = 'campusfood_poll';
-const VOTES_LOG_KEY = 'campusfood_votes_log'; // registro de quién votó qué, por encuesta
+const HISTORY_KEY = 'campusfood_poll_history';
+const VOTES_LOG_KEY = 'campusfood_votes_log';
 
-// { [pollId]: { [username]: optionId } }
 type VotesLog = Record<string, Record<string, string>>;
 
 function loadPoll(): VotePoll | null {
@@ -27,6 +27,15 @@ function loadPoll(): VotePoll | null {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function loadHistory(): VotePoll[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -45,6 +54,7 @@ function todayISO() {
 
 export function useVotes(username: string | null) {
   const [poll, setPoll] = useState<VotePoll | null>(() => loadPoll());
+  const [history, setHistory] = useState<VotePoll[]>(() => loadHistory());
   const [votesLog, setVotesLog] = useState<VotesLog>(() => loadVotesLog());
 
   useEffect(() => {
@@ -54,6 +64,10 @@ export function useVotes(username: string | null) {
       localStorage.removeItem(POLL_KEY);
     }
   }, [poll]);
+
+  useEffect(() => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
     localStorage.setItem(VOTES_LOG_KEY, JSON.stringify(votesLog));
@@ -66,6 +80,11 @@ export function useVotes(username: string | null) {
   const hasVoted = Boolean(poll && username && votesLog[poll.id]?.[username]);
 
   const createPoll = (question: string, optionLabels: string[], startDate: string, endDate: string) => {
+    // La encuesta anterior (si tenía votos) queda guardada en el historial antes de reemplazarla
+    if (poll) {
+      setHistory((current) => [...current, poll]);
+    }
+
     const newPoll: VotePoll = {
       id: `poll-${Date.now()}`,
       question,
@@ -86,6 +105,9 @@ export function useVotes(username: string | null) {
   };
 
   const deletePoll = () => {
+    if (poll) {
+      setHistory((current) => [...current, poll]);
+    }
     setPoll(null);
   };
 
@@ -108,5 +130,5 @@ export function useVotes(username: string | null) {
     }));
   };
 
-  return { poll, isOpen, hasVoted, createPoll, closePoll, reopenPoll, deletePoll, castVote };
+  return { poll, history, isOpen, hasVoted, createPoll, closePoll, reopenPoll, deletePoll, castVote };
 }
