@@ -1,8 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
 import {
   Check,
-  KeyRound,
   Pencil,
   Plus,
   RotateCcw,
@@ -30,6 +29,7 @@ type FormValues = {
 const ROLE_FILTERS: { id: RoleFilter; label: string }[] = [
   { id: 'todos', label: 'Todos' },
   { id: 'student', label: 'Estudiantes' },
+  { id: 'worker', label: 'Colaboradores' },
   { id: 'admin', label: 'Administradores' },
 ];
 
@@ -56,7 +56,9 @@ function getInitials(name: string) {
 }
 
 function roleLabel(role: Role) {
-  return role === 'admin' ? 'Administrador' : 'Estudiante';
+  if (role === 'admin') return 'Administrador';
+  if (role === 'worker') return 'Colaborador';
+  return 'Estudiante';
 }
 
 function UserForm({
@@ -144,6 +146,7 @@ function UserForm({
               className={INPUT_CLASS}
             >
               <option value="student">Estudiante</option>
+              <option value="worker">Colaborador (stock y menú)</option>
               <option value="admin">Personal Casino / Admin</option>
             </select>
           </div>
@@ -255,7 +258,9 @@ function UserCard({
             className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
               user.role === 'admin'
                 ? 'bg-[#4e0611]/10 text-[#4e0611]'
-                : 'bg-emerald-100 text-emerald-700'
+                : user.role === 'worker'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-emerald-100 text-emerald-700'
             }`}
           >
             {roleLabel(user.role)}
@@ -285,16 +290,6 @@ function UserCard({
           >
             <Pencil size={13} />
           </button>
-
-          {!confirmingDelete && (
-            <button
-              onClick={() => setEditing(true)}
-              aria-label={`Cambiar contraseña de ${user.name}`}
-              className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
-            >
-              <KeyRound size={13} />
-            </button>
-          )}
 
           {confirmingDelete ? (
             <button
@@ -352,7 +347,7 @@ function MetricCard({
 }: {
   label: string;
   value: number;
-  icon: ReactNode;
+  icon: React.ReactNode;
 }) {
   return (
     <div className="rounded-[24px] bg-white p-4">
@@ -402,15 +397,20 @@ export function AdminUsersView() {
 
   return (
     <div>
-      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total usuarios registrados" value={users.length} icon={<Users size={16} />} />
         <MetricCard
-          label="Estudiantes / Funcionarios"
+          label="Estudiantes"
           value={users.filter((u) => u.role === 'student').length}
           icon={<UserCheck size={16} />}
         />
         <MetricCard
-          label="Personal Casino"
+          label="Colaboradores"
+          value={users.filter((u) => u.role === 'worker').length}
+          icon={<Shield size={16} />}
+        />
+        <MetricCard
+          label="Administradores"
           value={users.filter((u) => u.role === 'admin').length}
           icon={<Shield size={16} />}
         />

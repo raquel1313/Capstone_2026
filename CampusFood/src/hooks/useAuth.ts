@@ -63,6 +63,7 @@ function parseSession(
       typeof user.username !== 'string' ||
       typeof user.name !== 'string' ||
       (user.role !== 'student' &&
+        user.role !== 'worker' &&
         user.role !== 'admin')
     ) {
       return null;
@@ -160,7 +161,7 @@ export function useAuth() {
 
     if (match.status === 'Inactivo') {
       setError(
-        'Tu cuenta está desactivada. Contacta al personal del casino.'
+        'Tu cuenta está desactivada. Comunícate con administración para reactivarla.'
       );
 
       return false;

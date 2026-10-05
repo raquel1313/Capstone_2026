@@ -1,26 +1,31 @@
 import { LayoutDashboard, LayoutGrid, Package, UtensilsCrossed, Users, Vote } from 'lucide-react';
 
+import type { Role } from '@/hooks/useAuth';
 import type { AdminView } from '@/types';
 
-const NAV_ITEMS: { id: AdminView; label: string; icon: typeof LayoutGrid }[] = [
+const NAV_ITEMS: { id: AdminView; label: string; icon: typeof LayoutGrid; adminOnly?: boolean }[] = [
   { id: 'dashboard', label: 'Panel', icon: LayoutDashboard },
   { id: 'orders', label: 'Pedidos', icon: LayoutGrid },
   { id: 'menu', label: 'Menú', icon: UtensilsCrossed },
   { id: 'products', label: 'Productos', icon: Package },
-  { id: 'votes', label: 'Votos', icon: Vote },
-  { id: 'users', label: 'Usuarios', icon: Users },
+  { id: 'votes', label: 'Votos', icon: Vote, adminOnly: true },
+  { id: 'users', label: 'Usuarios', icon: Users, adminOnly: true },
 ];
 
 export function AdminMobileNav({
   adminView,
   setAdminView,
+  role,
 }: {
   adminView: AdminView;
   setAdminView: (view: AdminView) => void;
+  role: Role;
 }) {
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === 'admin');
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-between overflow-x-auto border-t border-black/5 bg-white px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
-      {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+      {items.map(({ id, label, icon: Icon }) => {
         const isActive = adminView === id;
 
         return (

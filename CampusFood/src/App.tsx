@@ -145,7 +145,9 @@ function App() {
     return <Login onLogin={login} />;
   }
 
-  if (user.role === 'admin') {
+  // Admin y worker comparten el panel; AdminLayout decide qué secciones
+  // puede ver cada uno según user.role.
+  if (user.role === 'admin' || user.role === 'worker') {
     return (
       <AdminLayout
         user={user}

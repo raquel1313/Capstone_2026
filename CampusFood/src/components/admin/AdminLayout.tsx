@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { LogOut } from 'lucide-react';
 
@@ -34,6 +34,23 @@ const TITLES: Record<AdminView, string> = {
   votes: 'Votaciones',
   users: 'Usuarios y permisos',
 };
+
+// Secciones que solo puede ver el rol admin. El resto (dashboard, orders,
+// menu, products) lo comparten admin y worker.
+const ADMIN_ONLY_VIEWS: AdminView[] = ['votes', 'users'];
+
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
+function roleLabel(role: User['role']) {
+  return role === 'worker' ? 'Colaborador' : 'Administrador';
+}
 
 export function AdminLayout({
   user,
@@ -101,11 +118,24 @@ export function AdminLayout({
 }) {
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
 
+  const canSeeView = (view: AdminView) =>
+    user.role === 'admin' || !ADMIN_ONLY_VIEWS.includes(view);
+
+  // Si el rol cambia (o alguien queda en una sección que ya no le corresponde),
+  // lo devuelve al dashboard en vez de dejarlo en una vista restringida.
+  useEffect(() => {
+    if (!canSeeView(adminView)) {
+      setAdminView('dashboard');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.role, adminView]);
+
   return (
     <div className="flex min-h-screen bg-[#f8edef]">
       <AdminSidebar
         adminView={adminView}
         setAdminView={setAdminView}
+        role={user.role}
         onExit={onLogout}
       />
 
@@ -113,7 +143,7 @@ export function AdminLayout({
         <header className="flex items-center justify-between border-b border-black/5 bg-white px-5 py-5 sm:px-8 lg:px-10">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
-              Panel administrativo
+              {user.role === 'worker' ? 'Panel de colaborador' : 'Panel administrativo'}
             </p>
 
             <h1 className="mt-1 text-xl font-semibold tracking-tight">
@@ -121,12 +151,26 @@ export function AdminLayout({
             </h1>
           </div>
 
-          <button
-            onClick={onLogout}
-            className="grid h-10 w-10 place-items-center rounded-full bg-[#f8edef] text-black/45 transition hover:text-[#4e0611] lg:hidden"
-          >
-            <LogOut size={17} />
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-3 sm:flex">
+              <div className="text-right">
+                <p className="text-sm font-medium leading-tight text-black/80">{user.name}</p>
+                <p className="text-xs leading-tight text-black/40">{roleLabel(user.role)}</p>
+              </div>
+
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-[#4e0611] text-sm font-semibold text-white">
+                {getInitials(user.name)}
+              </div>
+            </div>
+
+            <button
+              onClick={onLogout}
+              title="Cerrar sesión"
+              className="grid h-10 w-10 place-items-center rounded-full bg-[#f8edef] text-black/45 transition hover:text-[#4e0611] lg:hidden"
+            >
+              <LogOut size={17} />
+            </button>
+          </div>
         </header>
 
         <div className="p-5 sm:p-8 lg:p-10">
@@ -174,7 +218,7 @@ export function AdminLayout({
             />
           )}
 
-          {adminView === 'votes' && (
+          {adminView === 'votes' && user.role === 'admin' && (
             <AdminVotesView
               poll={poll}
               isOpen={isPollOpen}
@@ -185,13 +229,14 @@ export function AdminLayout({
             />
           )}
 
-          {adminView === 'users' && <AdminUsersView />}
+          {adminView === 'users' && user.role === 'admin' && <AdminUsersView />}
         </div>
       </div>
 
       <AdminMobileNav
         adminView={adminView}
         setAdminView={setAdminView}
+        role={user.role}
       />
     </div>
   );

@@ -1,25 +1,31 @@
 import { LayoutDashboard, LayoutGrid, LogOut, Package, UtensilsCrossed, Users, Vote } from 'lucide-react';
 
+import type { Role } from '@/hooks/useAuth';
 import type { AdminView } from '@/types';
 
-const NAV_ITEMS: { id: AdminView; label: string; icon: typeof LayoutGrid }[] = [
+const NAV_ITEMS: { id: AdminView; label: string; icon: typeof LayoutGrid; adminOnly?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'orders', label: 'Pedidos', icon: LayoutGrid },
   { id: 'menu', label: 'Menú semanal', icon: UtensilsCrossed },
   { id: 'products', label: 'Productos', icon: Package },
-  { id: 'votes', label: 'Votaciones', icon: Vote },
-  { id: 'users', label: 'Usuarios', icon: Users },
+  { id: 'votes', label: 'Votaciones', icon: Vote, adminOnly: true },
+  { id: 'users', label: 'Usuarios', icon: Users, adminOnly: true },
 ];
 
 export function AdminSidebar({
   adminView,
   setAdminView,
+  role,
   onExit,
 }: {
   adminView: AdminView;
   setAdminView: (view: AdminView) => void;
+  role: Role;
   onExit: () => void;
 }) {
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === 'admin');
+  const panelLabel = role === 'worker' ? 'Panel de colaborador' : 'Panel administrativo';
+
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white px-5 py-8 lg:flex">
       <div>
@@ -28,12 +34,12 @@ export function AdminSidebar({
         </p>
 
         <h2 className="mt-1 text-lg font-semibold">
-          Panel administrativo
+          {panelLabel}
         </h2>
       </div>
 
       <nav className="mt-8 flex-1 space-y-1">
-        {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+        {items.map(({ id, label, icon: Icon }) => {
           const isActive = adminView === id;
 
           return (

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Image from 'next/image';
-import { Lock, User as UserIcon } from 'lucide-react';
+import { Eye, EyeOff, Lock, User as UserIcon } from 'lucide-react';
 
 import logo from '@/assets/images/logo.png';
 
@@ -13,6 +13,7 @@ export function Login({ onLogin }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -94,13 +95,23 @@ export function Login({ onLogin }: LoginProps) {
 
               <input
                 id="login-password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-2xl border border-white/50 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/60 focus:border-white"
+                className="w-full rounded-2xl border border-white/50 bg-white/5 py-3 pl-11 pr-11 text-sm text-white outline-none transition placeholder:text-white/60 focus:border-white"
                 placeholder="••••••••"
               />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                tabIndex={-1}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 transition hover:text-white"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 

@@ -3,7 +3,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
-export type Role = 'student' | 'admin';
+export type Role = 'student' | 'worker' | 'admin';
 
 export type UserItem = {
   id: string;
@@ -69,6 +69,14 @@ export const INITIAL_USERS: UserItem[] = [
     password: 'casino2026',
     name: 'Personal Casino',
     role: 'admin',
+    status: 'Activo',
+  },
+  {
+    id: '8',
+    username: 'colaborador@duocuc.cl',
+    password: '1234',
+    name: 'Colaborador Casino',
+    role: 'worker',
     status: 'Activo',
   },
 ];
