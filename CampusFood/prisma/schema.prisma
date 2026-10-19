@@ -63,3 +63,35 @@ model RolPermiso {
   @@index([idPermiso])
   @@map("rol_permiso")
 }
+
+model CategoriaProducto {
+  idCategoria Int     @id @default(autoincrement()) @map("id_categoria")
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.VarChar(255)
+  activo      Boolean @default(true)
+
+  productos Producto[]
+
+  @@map("categorias_producto")
+}
+
+model Producto {
+  idProducto         Int      @id @default(autoincrement()) @map("id_producto")
+  idCategoria        Int      @map("id_categoria")
+  sku                String   @unique @db.VarChar(50)
+  nombre             String   @db.VarChar(150)
+  descripcion        String?  @db.VarChar(500)
+  precio             Int
+  stock              Int      @default(0)
+  activo             Boolean  @default(true)
+  imagenUrl          String?  @map("imagen_url") @db.Text
+  temaVisual         String   @default("amber") @map("tema_visual") @db.VarChar(20)
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  categoria CategoriaProducto @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict)
+
+  @@index([idCategoria])
+  @@index([activo])
+  @@map("productos")
+}
