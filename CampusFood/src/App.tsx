@@ -61,7 +61,7 @@ function App() {
   const [showCart, setShowCart] = useState(false);
   const [orderCategory, setOrderCategory] = useState<string | null>(null);
 
-  const { user, login, logout } = useAuth();
+  const {user, login, logout, loading} = useAuth();
 
   const {
     cart,
@@ -138,6 +138,16 @@ function App() {
 
   if (showSplash) {
     return <SplashScreen done={splashDone} />;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#4e0611]">
+        <p className="text-sm text-white/80">
+          Cargando...
+        </p>
+      </div>
+    );
   }
 
   if (!user) {
