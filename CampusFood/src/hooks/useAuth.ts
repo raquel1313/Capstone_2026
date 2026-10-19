@@ -161,7 +161,7 @@ export function useAuth() {
 
     if (match.status === 'Inactivo') {
       setError(
-        'Tu cuenta está desactivada. Comunícate con administración para reactivarla.'
+        'Tu cuenta está desactivada. Comunícate con soporte técnico para reactivarla.'
       );
 
       return false;

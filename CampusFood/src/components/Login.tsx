@@ -7,12 +7,12 @@ import logo from '@/assets/images/logo.png';
 
 interface LoginProps {
   onLogin: (username: string, password: string) => boolean;
+  error: string | null;
 }
 
-export function Login({ onLogin }: LoginProps) {
+export function Login({ onLogin, error }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -21,12 +21,8 @@ export function Login({ onLogin }: LoginProps) {
     const success = onLogin(username, password);
 
     if (!success) {
-      setError('Usuario o contraseña incorrectos.');
       setPassword('');
-      return;
     }
-
-    setError(null);
   };
 
   return (

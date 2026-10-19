@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Check,
+  Eye,
+  EyeOff,
   Pencil,
   Plus,
   RotateCcw,
@@ -76,6 +78,7 @@ function UserForm({
 }) {
   const [form, setForm] = useState(initial);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSave = () => {
     const values: FormValues = {
@@ -170,13 +173,25 @@ function UserForm({
           <label className="text-xs text-black/40">
             {isEditing ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'}
           </label>
-          <input
-            type="password"
-            value={form.password}
-            onChange={(event) => setForm({ ...form, password: event.target.value })}
-            placeholder={isEditing ? 'Dejar en blanco para no cambiarla' : 'Mínimo 4 caracteres'}
-            className={INPUT_CLASS}
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              placeholder={isEditing ? 'Dejar en blanco para no cambiarla' : 'Mínimo 4 caracteres'}
+              className={`${INPUT_CLASS} pr-10`}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              tabIndex={-1}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-black/40 transition hover:text-[#4e0611]"
+            >
+              {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -366,6 +381,15 @@ export function AdminUsersView() {
   const [adding, setAdding] = useState(false);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('todos');
   const [search, setSearch] = useState('');
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  // El mensaje de éxito se oculta solo a los 3 segundos.
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = setTimeout(() => setFeedback(null), 3000);
+    return () => clearTimeout(timer);
+  }, [feedback]);
 
   const activeAdmins = users.filter((u) => u.role === 'admin' && u.status === 'Activo');
   const isLastAdmin = (u: UserItem) =>
@@ -397,6 +421,13 @@ export function AdminUsersView() {
 
   return (
     <div>
+      {feedback && (
+        <div className="mb-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          <Check size={16} />
+          {feedback}
+        </div>
+      )}
+
       <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total usuarios registrados" value={users.length} icon={<Users size={16} />} />
         <MetricCard
@@ -435,7 +466,10 @@ export function AdminUsersView() {
 
         <div className="flex gap-2">
           <button
-            onClick={resetUsers}
+            onClick={() => {
+              resetUsers();
+              setFeedback('Lista de usuarios restaurada.');
+            }}
             className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-medium text-black/45 transition hover:bg-[#f8edef] hover:text-[#4e0611]"
           >
             <RotateCcw size={13} /> Restaurar
@@ -478,6 +512,7 @@ export function AdminUsersView() {
                 password: values.password,
               });
               setAdding(false);
+              setFeedback(`Usuario "${values.name}" creado.`);
             }}
             onCancel={() => setAdding(false)}
           />
@@ -489,7 +524,7 @@ export function AdminUsersView() {
             user={user}
             locked={isLastAdmin(user)}
             validate={(values) => validate(values, user)}
-            onSave={(values) =>
+            onSave={(values) => {
               updateUser(user.id, {
                 name: values.name,
                 username: values.username,
@@ -497,12 +532,20 @@ export function AdminUsersView() {
                 status: values.status,
                 // Solo se cambia la contraseña si se escribió una nueva.
                 ...(values.password ? { password: values.password } : {}),
-              })
-            }
-            onRemove={() => removeUser(user.id)}
-            onToggleStatus={() =>
-              updateUser(user.id, { status: user.status === 'Activo' ? 'Inactivo' : 'Activo' })
-            }
+              });
+              setFeedback(`Usuario "${values.name}" actualizado.`);
+            }}
+            onRemove={() => {
+              removeUser(user.id);
+              setFeedback(`Usuario "${user.name}" eliminado.`);
+            }}
+            onToggleStatus={() => {
+              const next = user.status === 'Activo' ? 'Inactivo' : 'Activo';
+              updateUser(user.id, { status: next });
+              setFeedback(
+                next === 'Activo' ? `"${user.name}" fue activado.` : `"${user.name}" fue desactivado.`
+              );
+            }}
           />
         ))}
       </div>

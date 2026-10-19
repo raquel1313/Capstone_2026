@@ -61,7 +61,7 @@ function App() {
   const [showCart, setShowCart] = useState(false);
   const [orderCategory, setOrderCategory] = useState<string | null>(null);
 
-  const { user, login, logout } = useAuth();
+  const { user, login, logout, error: authError } = useAuth();
 
   const {
     cart,
@@ -72,8 +72,7 @@ function App() {
     subtotal,
   } = useCart();
 
-  // Cambio A: agregar cancelOrder
-  const { orders, addOrder, updateStatus, cancelOrder } = useOrders();
+  const { orders, addOrder, updateStatus } = useOrders();
 
   const {
     notifications,
@@ -143,7 +142,7 @@ function App() {
   }
 
   if (!user) {
-    return <Login onLogin={login} />;
+    return <Login onLogin={login} error={authError} />;
   }
 
   // Admin y worker comparten el panel; AdminLayout decide qué secciones
@@ -155,7 +154,6 @@ function App() {
         onLogout={logout}
         orders={orders}
         updateOrderStatus={updateStatus}
-        cancelOrder={cancelOrder}
         menu={menu}
         addMenuDay={addDay}
         updateMenuDayDate={updateDayDate}
@@ -178,6 +176,7 @@ function App() {
         closePoll={closePoll}
         reopenPoll={reopenPoll}
         deletePoll={deletePoll}
+        
       />
     );
   }
@@ -292,15 +291,7 @@ function App() {
               />
             )}
 
-            {/* Cambio C: pasar cancelOrder a ProfileView */}
-            {view === 'profile' && (
-              <ProfileView
-                user={user}
-                orders={orders}
-                logout={logout}
-                cancelOrder={cancelOrder}
-              />
-            )}
+            {view === 'profile' && <ProfileView user={user} orders={orders} logout={logout} />}
           </div>
 
           <BottomNav view={view} setView={goTo} />
