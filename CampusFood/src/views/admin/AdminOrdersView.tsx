@@ -1,9 +1,17 @@
 import { useMemo, useState } from 'react';
 
 import Image from 'next/image';
-import { Calendar, Clock, Search, User, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Ban,
+  Calendar,
+  Clock,
+  Search,
+  User,
+  X,
+} from 'lucide-react';
 
-import type { Order, OrderStatus } from '@/types';
+import type { CancelledBy, Order, OrderStatus } from '@/types';
 
 import { formatPrice } from '@/data';
 
@@ -14,12 +22,26 @@ type DatePreset = 'todo' | 'hoy' | 'ayer' | '7dias' | 'rango';
 type TimeBand = 'todas' | 'almuerzo' | 'fuera';
 type SortMode = 'recientes' | 'antiguos' | 'mayor' | 'menor';
 
+const STATUS_OPTIONS: StatusFilter[] = [
+  'todos',
+  'pendiente',
+  'listo',
+  'cancelado',
+];
+
 const DATE_PRESETS: { id: DatePreset; label: string }[] = [
   { id: 'todo', label: 'Todo' },
   { id: 'hoy', label: 'Hoy' },
   { id: 'ayer', label: 'Ayer' },
   { id: '7dias', label: 'Últimos 7 días' },
   { id: 'rango', label: 'Rango' },
+];
+
+const CANCEL_REASONS = [
+  'Producto agotado',
+  'Solicitud del cliente',
+  'Error en el pedido',
+  'Otro motivo',
 ];
 
 // Mismo horario que se muestra a los estudiantes: 11:30 a 15:00
@@ -45,12 +67,121 @@ function addDays(date: Date, amount: number) {
   return copy;
 }
 
+function statusLabel(status: StatusFilter, pendingTotal: number) {
+  if (status === 'todos') return 'Todos';
+  if (status === 'pendiente') return `Pendientes (${pendingTotal})`;
+  if (status === 'listo') return 'Listos';
+  return 'Cancelados';
+}
+
+function CancelPanel({
+  soldOutNames,
+  onConfirm,
+  onClose,
+}: {
+  soldOutNames: string[];
+  onConfirm: (reason: string) => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState(
+    soldOutNames.length > 0 ? 'Producto agotado' : 'Solicitud del cliente'
+  );
+  const [custom, setCustom] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirm = () => {
+    if (reason === 'Otro motivo') {
+      if (!custom.trim()) {
+        setError('Escribe el motivo de la cancelación.');
+        return;
+      }
+
+      onConfirm(custom.trim());
+      return;
+    }
+
+    if (reason === 'Producto agotado' && soldOutNames.length > 0) {
+      onConfirm(`Producto agotado: ${soldOutNames.join(', ')}`);
+      return;
+    }
+
+    onConfirm(reason);
+  };
+
+  return (
+    <div className="mt-4 rounded-2xl bg-red-50 p-4">
+      <p className="text-xs font-semibold text-red-700">
+        Cancelar este pedido
+      </p>
+
+      <label className="mt-2 block text-xs text-black/60">
+        Motivo (se le muestra al cliente)
+        <select
+          value={reason}
+          onChange={(event) => {
+            setReason(event.target.value);
+            setError(null);
+          }}
+          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
+        >
+          {CANCEL_REASONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {reason === 'Otro motivo' && (
+        <input
+          value={custom}
+          onChange={(event) => {
+            setCustom(event.target.value);
+            setError(null);
+          }}
+          placeholder="Escribe el motivo"
+          aria-label="Motivo de la cancelación"
+          className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
+        />
+      )}
+
+      {error && (
+        <p role="alert" className="mt-2 text-xs font-medium text-red-700">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className="flex-1 rounded-full bg-red-600 py-2 text-xs font-semibold text-white transition hover:bg-red-700"
+        >
+          Confirmar cancelación
+        </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/5"
+        >
+          Volver
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AdminOrdersView({
   orders,
   updateStatus,
+  cancelOrder,
+  soldOutProductIds,
 }: {
   orders: Order[];
   updateStatus: (id: string, status: OrderStatus) => void;
+  cancelOrder: (id: string, by: CancelledBy, reason: string) => void;
+  soldOutProductIds: number[];
 }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
   const [datePreset, setDatePreset] = useState<DatePreset>('todo');
@@ -60,6 +191,18 @@ export function AdminOrdersView({
   const [productId, setProductId] = useState('todos');
   const [timeBand, setTimeBand] = useState<TimeBand>('todas');
   const [sortMode, setSortMode] = useState<SortMode>('recientes');
+  const [onlyAffected, setOnlyAffected] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const soldOutSet = new Set(soldOutProductIds);
+
+  // Pedido pendiente que incluye algún producto que ahora está agotado
+  const isAffected = (order: Order) =>
+    order.status === 'pendiente' &&
+    order.items.some((item) => soldOutSet.has(item.id));
+
+  const affectedCount = orders.filter(isAffected).length;
+  const showOnlyAffected = onlyAffected && affectedCount > 0;
 
   // Productos que aparecen en algún pedido, para el selector
   const productOptions = useMemo(() => {
@@ -161,17 +304,24 @@ export function AdminOrdersView({
     sortMode,
   ]);
 
+  const visible = showOnlyAffected ? filtered.filter(isAffected) : filtered;
+
   const pendingTotal = orders.filter((o) => o.status === 'pendiente').length;
 
-  const filteredTotal = filtered.reduce((sum, o) => sum + o.subtotal, 0);
-  const filteredPending = filtered.filter((o) => o.status === 'pendiente').length;
+  // Los cancelados no cuentan como pedidos ni como venta
+  const activeVisible = visible.filter((o) => o.status !== 'cancelado');
+
+  const visibleTotal = activeVisible.reduce((sum, o) => sum + o.subtotal, 0);
+  const visiblePending = visible.filter((o) => o.status === 'pendiente').length;
+  const visibleCancelled = visible.filter((o) => o.status === 'cancelado').length;
 
   const hasActiveFilters =
     statusFilter !== 'todos' ||
     datePreset !== 'todo' ||
     search.trim() !== '' ||
     productId !== 'todos' ||
-    timeBand !== 'todas';
+    timeBand !== 'todas' ||
+    showOnlyAffected;
 
   const clearFilters = () => {
     setStatusFilter('todos');
@@ -182,27 +332,57 @@ export function AdminOrdersView({
     setProductId('todos');
     setTimeBand('todas');
     setSortMode('recientes');
+    setOnlyAffected(false);
   };
 
   return (
     <div>
+      {/* Aviso de pedidos con productos agotados */}
+      {affectedCount > 0 && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-amber-50 p-4 text-amber-900">
+          <div className="flex items-start gap-2 text-sm">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+
+            <span>
+              {affectedCount === 1
+                ? '1 pedido pendiente incluye un producto agotado.'
+                : `${affectedCount} pedidos pendientes incluyen productos agotados.`}{' '}
+              Revísalos y cancela los que no se puedan preparar.
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setOnlyAffected((value) => !value)}
+            className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+          >
+            {showOnlyAffected ? 'Ver todos' : 'Ver solo estos'}
+          </button>
+        </div>
+      )}
+
       {/* Resumen de lo que se está viendo */}
-      <div className="mb-5 grid grid-cols-3 gap-3">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl bg-white p-4">
           <p className="text-xs text-black/40">Pedidos</p>
-          <p className="mt-1 text-xl font-semibold">{filtered.length}</p>
+          <p className="mt-1 text-xl font-semibold">{activeVisible.length}</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4">
           <p className="text-xs text-black/40">Total vendido</p>
           <p className="mt-1 text-xl font-semibold text-[#4e0611]">
-            {formatPrice(filteredTotal)}
+            {formatPrice(visibleTotal)}
           </p>
         </div>
 
         <div className="rounded-2xl bg-white p-4">
           <p className="text-xs text-black/40">Pendientes</p>
-          <p className="mt-1 text-xl font-semibold">{filteredPending}</p>
+          <p className="mt-1 text-xl font-semibold">{visiblePending}</p>
+        </div>
+
+        <div className="rounded-2xl bg-white p-4">
+          <p className="text-xs text-black/40">Cancelados</p>
+          <p className="mt-1 text-xl font-semibold">{visibleCancelled}</p>
         </div>
       </div>
 
@@ -235,7 +415,7 @@ export function AdminOrdersView({
 
         {/* Estado */}
         <div className="flex flex-wrap gap-2">
-          {(['todos', 'pendiente', 'listo'] as StatusFilter[]).map((option) => (
+          {STATUS_OPTIONS.map((option) => (
             <button
               key={option}
               onClick={() => setStatusFilter(option)}
@@ -245,11 +425,7 @@ export function AdminOrdersView({
                   : 'bg-[#f5f5f3] text-black/50 hover:bg-[#f8edef] hover:text-[#4e0611]'
               }`}
             >
-              {option === 'todos'
-                ? 'Todos'
-                : option === 'pendiente'
-                  ? `Pendientes (${pendingTotal})`
-                  : 'Listos'}
+              {statusLabel(option, pendingTotal)}
             </button>
           ))}
         </div>
@@ -363,7 +539,7 @@ export function AdminOrdersView({
       </div>
 
       {/* Resultados */}
-      {filtered.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-14 text-center">
           <Image
             src={logo}
@@ -388,88 +564,194 @@ export function AdminOrdersView({
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((order) => (
-            <div key={order.id} className="rounded-[24px] bg-white p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-black/40">Número de retiro</p>
+          {visible.map((order) => {
+            const cancelled = order.status === 'cancelado';
 
-                  <p className="text-2xl font-bold tracking-widest text-[#4e0611]">
-                    {order.id}
-                  </p>
+            const soldOutItems =
+              order.status === 'pendiente'
+                ? order.items.filter((item) => soldOutSet.has(item.id))
+                : [];
+
+            const badgeClass = cancelled
+              ? 'bg-red-50 text-red-700'
+              : order.status === 'pendiente'
+                ? 'bg-[#f8edef] text-black/50'
+                : 'bg-[#f8edef] text-[#4e0611]';
+
+            const badgeText = cancelled
+              ? 'Cancelado'
+              : order.status === 'pendiente'
+                ? 'Pendiente'
+                : 'Listo';
+
+            return (
+              <div key={order.id} className="rounded-[24px] bg-white p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-black/40">Número de retiro</p>
+
+                    <p
+                      className={`text-2xl font-bold tracking-widest ${
+                        cancelled
+                          ? 'text-black/30 line-through'
+                          : 'text-[#4e0611]'
+                      }`}
+                    >
+                      {order.id}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${badgeClass}`}
+                  >
+                    {badgeText}
+                  </span>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-                    order.status === 'pendiente'
-                      ? 'bg-[#f8edef] text-black/50'
-                      : 'bg-[#f8edef] text-[#4e0611]'
-                  }`}
-                >
-                  {order.status === 'pendiente' ? 'Pendiente' : 'Listo'}
-                </span>
-              </div>
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/40">
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={12} />
 
-              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/40">
-                <span className="flex items-center gap-1.5">
-                  <Clock size={12} />
-
-                  {new Date(order.createdAt).toLocaleDateString('es-CL', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}{' '}
-                  ·{' '}
-                  {new Date(order.createdAt).toLocaleTimeString('es-CL', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <User size={12} className="shrink-0" />
-                  <span className="truncate">
-                    {order.username ?? 'Sin usuario'}
+                    {new Date(order.createdAt).toLocaleDateString('es-CL', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}{' '}
+                    ·{' '}
+                    {new Date(order.createdAt).toLocaleTimeString('es-CL', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </span>
-                </span>
-              </div>
 
-              <ul className="mt-4 space-y-1.5 border-t border-black/5 pt-4">
-                {order.items.map((item) => (
-                  <li key={item.id} className="flex justify-between text-sm">
-                    <span className="text-black/65">
-                      {item.quantity}x {item.name}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <User size={12} className="shrink-0" />
+                    <span className="truncate">
+                      {order.username ?? 'Sin usuario'}
                     </span>
+                  </span>
+                </div>
 
-                    <span className="font-medium">
-                      {formatPrice(item.price * item.quantity)}
+                {soldOutItems.length > 0 && (
+                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+
+                    <span>
+                      Incluye un producto agotado:{' '}
+                      {soldOutItems.map((item) => item.name).join(', ')}.
                     </span>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                )}
 
-              <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-4">
-                <span className="text-sm font-semibold">
-                  {formatPrice(order.subtotal)}
-                </span>
+                <ul className="mt-4 space-y-1.5 border-t border-black/5 pt-4">
+                  {order.items.map((item) => (
+                    <li key={item.id} className="flex justify-between text-sm">
+                      <span
+                        className={cancelled ? 'text-black/35' : 'text-black/65'}
+                      >
+                        {item.quantity}x {item.name}
+                      </span>
 
-                {order.status === 'pendiente' ? (
-                  <button
-                    onClick={() => updateStatus(order.id, 'listo')}
-                    className="rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
-                  >
-                    Marcar como listo
-                  </button>
+                      <span
+                        className={`font-medium ${
+                          cancelled ? 'text-black/35' : ''
+                        }`}
+                      >
+                        {formatPrice(item.price * item.quantity)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                {cancelled ? (
+                  <div className="mt-4 border-t border-black/5 pt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-black/30 line-through">
+                        {formatPrice(order.subtotal)}
+                      </span>
+
+                      {order.cancelledAt && (
+                        <span className="text-xs text-black/40">
+                          {new Date(order.cancelledAt).toLocaleDateString(
+                            'es-CL',
+                            { day: 'numeric', month: 'short' }
+                          )}{' '}
+                          ·{' '}
+                          {new Date(order.cancelledAt).toLocaleTimeString(
+                            'es-CL',
+                            { hour: '2-digit', minute: '2-digit' }
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-2 text-xs text-red-700">
+                      {order.cancelledBy === 'cliente'
+                        ? 'Cancelado por el cliente'
+                        : `Cancelado por el casino${
+                            order.cancelReason ? ` · ${order.cancelReason}` : ''
+                          }`}
+                    </p>
+                  </div>
                 ) : (
-                  <button
-                    onClick={() => updateStatus(order.id, 'pendiente')}
-                    className="rounded-full bg-[#f8edef] px-4 py-2 text-xs font-medium text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
-                  >
-                    Revertir
-                  </button>
+                  <>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-4">
+                      <span className="text-sm font-semibold">
+                        {formatPrice(order.subtotal)}
+                      </span>
+
+                      {order.status === 'pendiente' ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCancellingId(
+                                cancellingId === order.id ? null : order.id
+                              )
+                            }
+                            className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
+                              soldOutItems.length > 0
+                                ? 'bg-red-600 text-white hover:bg-red-700'
+                                : 'bg-[#f5f5f3] text-black/60 hover:bg-red-50 hover:text-red-700'
+                            }`}
+                          >
+                            <Ban size={13} />
+                            Cancelar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => updateStatus(order.id, 'listo')}
+                            className="rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                          >
+                            Marcar como listo
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => updateStatus(order.id, 'pendiente')}
+                          className="rounded-full bg-[#f8edef] px-4 py-2 text-xs font-medium text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+                        >
+                          Revertir
+                        </button>
+                      )}
+                    </div>
+
+                    {cancellingId === order.id && (
+                      <CancelPanel
+                        soldOutNames={soldOutItems.map((item) => item.name)}
+                        onConfirm={(reason) => {
+                          cancelOrder(order.id, 'personal', reason);
+                          setCancellingId(null);
+                        }}
+                        onClose={() => setCancellingId(null)}
+                      />
+                    )}
+                  </>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

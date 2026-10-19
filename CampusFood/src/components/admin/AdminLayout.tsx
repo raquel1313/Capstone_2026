@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 
 import { LogOut } from 'lucide-react';
 
-import type { AdminView, Dish, LunchDay, Order, OrderStatus } from '@/types';
+import type {
+  AdminView,
+  CancelledBy,
+  Dish,
+  LunchDay,
+  Order,
+  OrderStatus,
+} from '@/types';
 
 import type { Product } from '@/data';
 
@@ -57,6 +64,7 @@ export function AdminLayout({
   onLogout,
   orders,
   updateOrderStatus,
+  cancelOrder,
   menu,
   addMenuDay,
   updateMenuDayDate,
@@ -84,6 +92,7 @@ export function AdminLayout({
   onLogout: () => void;
   orders: Order[];
   updateOrderStatus: (id: string, status: OrderStatus) => void;
+  cancelOrder: (id: string, by: CancelledBy, reason: string) => void;
   menu: LunchDay[];
   addMenuDay: (date: string) => void;
   updateMenuDayDate: (dayId: string, date: string) => void;
@@ -143,7 +152,9 @@ export function AdminLayout({
         <header className="flex items-center justify-between border-b border-black/5 bg-white px-5 py-5 sm:px-8 lg:px-10">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
-              {user.role === 'worker' ? 'Panel de colaborador' : 'Panel administrativo'}
+              {user.role === 'worker'
+                ? 'Panel de colaborador'
+                : 'Panel administrativo'}
             </p>
 
             <h1 className="mt-1 text-xl font-semibold tracking-tight">
@@ -154,8 +165,12 @@ export function AdminLayout({
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-3 sm:flex">
               <div className="text-right">
-                <p className="text-sm font-medium leading-tight text-black/80">{user.name}</p>
-                <p className="text-xs leading-tight text-black/40">{roleLabel(user.role)}</p>
+                <p className="text-sm font-medium leading-tight text-black/80">
+                  {user.name}
+                </p>
+                <p className="text-xs leading-tight text-black/40">
+                  {roleLabel(user.role)}
+                </p>
               </div>
 
               <div className="grid h-10 w-10 place-items-center rounded-full bg-[#4e0611] text-sm font-semibold text-white">
@@ -190,6 +205,10 @@ export function AdminLayout({
             <AdminOrdersView
               orders={orders}
               updateStatus={updateOrderStatus}
+              cancelOrder={cancelOrder}
+              soldOutProductIds={products
+                .filter((product) => product.soldOut)
+                .map((product) => product.id)}
             />
           )}
 
@@ -229,7 +248,9 @@ export function AdminLayout({
             />
           )}
 
-          {adminView === 'users' && user.role === 'admin' && <AdminUsersView />}
+          {adminView === 'users' && user.role === 'admin' && (
+            <AdminUsersView />
+          )}
         </div>
       </div>
 

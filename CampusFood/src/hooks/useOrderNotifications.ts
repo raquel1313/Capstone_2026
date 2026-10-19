@@ -10,6 +10,8 @@ import type { Order } from '@/types';
 export type OrderNotification = {
   id: string;
   orderId: string;
+  // Notificaciones guardadas antes de este cambio no tienen tipo: se tratan como "ready"
+  kind?: 'ready' | 'cancelled';
   message: string;
   read: boolean;
   createdAt: string;
@@ -146,6 +148,10 @@ function useStoredArray<T>(
   );
 }
 
+function kindOf(notification: OrderNotification) {
+  return notification.kind ?? 'ready';
+}
+
 export function useOrderNotifications(
   orders: Order[],
   username: string | null
@@ -177,19 +183,22 @@ export function useOrderNotifications(
         readStorage(notificationsKey)
       );
 
-    const currentDismissedOrderIds =
+    const currentDismissed =
       parseStoredArray<string>(
         readStorage(dismissedKey)
       );
 
-    const alreadyHandledOrderIds =
-      new Set([
-        ...currentNotifications.map(
-          (notification) =>
-            notification.orderId
-        ),
-        ...currentDismissedOrderIds,
-      ]);
+    // Clave "pedido:tipo". Los descartados antiguos eran solo el número de pedido
+    // y se interpretan como avisos de "listo".
+    const alreadyHandled = new Set<string>([
+      ...currentNotifications.map(
+        (notification) =>
+          `${notification.orderId}:${kindOf(notification)}`
+      ),
+      ...currentDismissed.map((entry) =>
+        entry.includes(':') ? entry : `${entry}:ready`
+      ),
+    ]);
 
     const newNotifications:
       OrderNotification[] = [];
@@ -199,25 +208,45 @@ export function useOrderNotifications(
         continue;
       }
 
-      if (order.status !== 'listo') {
+      if (order.status === 'listo') {
+        if (alreadyHandled.has(`${order.id}:ready`)) {
+          continue;
+        }
+
+        newNotifications.push({
+          id: `notif-${Date.now()}-${order.id}-ready`,
+          orderId: order.id,
+          kind: 'ready',
+          message: `Tu pedido ${order.id} está listo para retirar.`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+
         continue;
       }
 
+      // Solo se avisa si cancela el casino; si el cliente cancela, ya lo sabe
       if (
-        alreadyHandledOrderIds.has(
-          order.id
-        )
+        order.status === 'cancelado' &&
+        order.cancelledBy === 'personal'
       ) {
-        continue;
-      }
+        if (alreadyHandled.has(`${order.id}:cancelled`)) {
+          continue;
+        }
 
-      newNotifications.push({
-        id: `notif-${Date.now()}-${order.id}`,
-        orderId: order.id,
-        message: `Tu pedido ${order.id} está listo para retirar.`,
-        read: false,
-        createdAt: new Date().toISOString(),
-      });
+        const reason = order.cancelReason
+          ? ` Motivo: ${order.cancelReason}.`
+          : '';
+
+        newNotifications.push({
+          id: `notif-${Date.now()}-${order.id}-cancelled`,
+          orderId: order.id,
+          kind: 'cancelled',
+          message: `Tu pedido ${order.id} fue cancelado por el casino.${reason}`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
 
     if (newNotifications.length === 0) {
@@ -312,21 +341,19 @@ export function useOrderNotifications(
       return;
     }
 
-    const currentDismissedOrderIds =
+    const dismissedEntry = `${target.orderId}:${kindOf(target)}`;
+
+    const currentDismissed =
       parseStoredArray<string>(
         readStorage(dismissedKey)
       );
 
-    if (
-      !currentDismissedOrderIds.includes(
-        target.orderId
-      )
-    ) {
+    if (!currentDismissed.includes(dismissedEntry)) {
       writeStorageArray(
         dismissedKey,
         [
-          ...currentDismissedOrderIds,
-          target.orderId,
+          ...currentDismissed,
+          dismissedEntry,
         ]
       );
     }

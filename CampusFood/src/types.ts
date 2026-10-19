@@ -4,7 +4,10 @@ export type View = 'home' | 'menu' | 'orders' | 'profile';
 
 export type AdminView = 'dashboard' | 'menu' | 'products' | 'orders' | 'votes' | 'users';
 
-export type OrderStatus = 'pendiente' | 'listo';
+export type OrderStatus = 'pendiente' | 'listo' | 'cancelado';
+
+// Quién canceló el pedido: el propio cliente o el personal del casino
+export type CancelledBy = 'cliente' | 'personal';
 
 export type OrderItem = {
   id: number;
@@ -20,4 +23,7 @@ export type Order = {
   subtotal: number;
   status: OrderStatus;
   createdAt: string;
+  cancelledAt?: string;
+  cancelledBy?: CancelledBy;
+  cancelReason?: string;
 };

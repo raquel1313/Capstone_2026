@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { Clock, LogOut, Package, ShoppingBag } from 'lucide-react';
-import type { Order } from '@/types';
+import { Ban, Clock, LogOut, Package, ShoppingBag } from 'lucide-react';
+import type { CancelledBy, Order } from '@/types';
 import type { User } from '@/hooks/useAuth';
 import { formatPrice } from '@/data';
 
@@ -33,42 +33,118 @@ function StatCard({
   );
 }
 
-function OrderRow({ order }: { order: Order }) {
+function OrderRow({
+  order,
+  onCancel,
+}: {
+  order: Order;
+  onCancel: (id: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
   const total = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const cancelled = order.status === 'cancelado';
+
+  const badge = cancelled
+    ? { label: 'Cancelado', className: 'bg-red-50 text-red-700' }
+    : order.status === 'listo'
+      ? { label: 'Listo', className: 'bg-[#f8edef] text-[#4e0611]' }
+      : { label: 'Pendiente', className: 'bg-[#f5f5f3] text-black/50' };
 
   return (
-    <div className="flex items-center gap-4 border-b border-black/5 py-4 last:border-b-0">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f5f5f3] text-sm font-bold text-black/45">
-        {order.id.replace('C-', '')}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-semibold">{order.id}</p>
-
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-              order.status === 'listo'
-                ? 'bg-[#f8edef] text-[#4e0611]'
-                : 'bg-[#f5f5f3] text-black/50'
-            }`}
-          >
-            {order.status === 'listo' ? 'Listo' : 'Pendiente'}
-          </span>
+    <div className="border-b border-black/5 py-4 last:border-b-0">
+      <div className="flex items-center gap-4">
+        <div
+          className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f5f5f3] text-sm font-bold ${
+            cancelled ? 'text-black/30' : 'text-black/45'
+          }`}
+        >
+          {order.id.replace('C-', '')}
         </div>
 
-        <p className="mt-0.5 truncate text-xs text-black/45">
-          {total} producto{total === 1 ? '' : 's'} ·{' '}
-          {new Date(order.createdAt).toLocaleDateString('es-CL', {
-            day: 'numeric',
-            month: 'short',
-          })}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p
+              className={`truncate text-sm font-semibold ${
+                cancelled ? 'text-black/40' : ''
+              }`}
+            >
+              {order.id}
+            </p>
+
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}
+            >
+              {badge.label}
+            </span>
+          </div>
+
+          <p className="mt-0.5 truncate text-xs text-black/45">
+            {total} producto{total === 1 ? '' : 's'} ·{' '}
+            {new Date(order.createdAt).toLocaleDateString('es-CL', {
+              day: 'numeric',
+              month: 'short',
+            })}
+          </p>
+        </div>
+
+        <p
+          className={`shrink-0 text-sm font-semibold ${
+            cancelled ? 'text-black/30 line-through' : ''
+          }`}
+        >
+          {formatPrice(order.subtotal)}
         </p>
       </div>
 
-      <p className="shrink-0 text-sm font-semibold">
-        {formatPrice(order.subtotal)}
-      </p>
+      {cancelled && (
+        <p className="mt-2 pl-[60px] text-xs text-red-700">
+          {order.cancelledBy === 'personal'
+            ? `El casino canceló este pedido${
+                order.cancelReason ? `: ${order.cancelReason}` : '.'
+              }`
+            : 'Cancelaste este pedido.'}
+        </p>
+      )}
+
+      {order.status === 'pendiente' && (
+        <div className="mt-3 pl-[60px]">
+          {confirming ? (
+            <div>
+              <p className="text-xs text-black/60">
+                ¿Seguro que quieres cancelar este pedido?
+              </p>
+
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onCancel(order.id)}
+                  className="rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-700"
+                >
+                  Sí, cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  className="rounded-full bg-[#f5f5f3] px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/10"
+                >
+                  No, mantener
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="flex items-center gap-1.5 rounded-full bg-[#f5f5f3] px-3.5 py-2 text-xs font-medium text-black/60 transition hover:bg-red-50 hover:text-red-700"
+            >
+              <Ban size={13} />
+              Cancelar pedido
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -77,10 +153,12 @@ export function ProfileView({
   user,
   orders,
   logout,
+  cancelOrder,
 }: {
   user: User;
   orders: Order[];
   logout: () => void;
+  cancelOrder: (id: string, by: CancelledBy, reason: string) => void;
 }) {
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
@@ -92,8 +170,16 @@ export function ProfileView({
         new Date(a.createdAt).getTime()
     );
 
+  const activeCount = myOrders.filter(
+    (order) => order.status !== 'cancelado'
+  ).length;
+
   const pendingCount = myOrders.filter(
     (order) => order.status === 'pendiente'
+  ).length;
+
+  const cancelledCount = myOrders.filter(
+    (order) => order.status === 'cancelado'
   ).length;
 
   return (
@@ -128,17 +214,23 @@ export function ProfileView({
       </div>
 
       {/* Estadísticas */}
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <div className="mt-5 grid grid-cols-3 gap-3">
         <StatCard
           icon={<ShoppingBag size={17} />}
-          label="Pedidos totales"
-          value={String(myOrders.length)}
+          label="Pedidos"
+          value={String(activeCount)}
         />
 
         <StatCard
           icon={<Clock size={17} />}
           label="En curso"
           value={String(pendingCount)}
+        />
+
+        <StatCard
+          icon={<Ban size={17} />}
+          label="Cancelados"
+          value={String(cancelledCount)}
         />
       </div>
 
@@ -152,6 +244,10 @@ export function ProfileView({
           </h3>
         </div>
 
+        <p className="mt-2 text-xs text-black/40">
+          Puedes cancelar un pedido mientras esté pendiente.
+        </p>
+
         {myOrders.length === 0 ? (
           <p className="mt-6 text-center text-sm text-black/40">
             Aún no has hecho ningún pedido.
@@ -159,7 +255,13 @@ export function ProfileView({
         ) : (
           <div className="mt-3">
             {myOrders.map((order) => (
-              <OrderRow key={order.id} order={order} />
+              <OrderRow
+                key={order.id}
+                order={order}
+                onCancel={(id) =>
+                  cancelOrder(id, 'cliente', 'Solicitud del cliente')
+                }
+              />
             ))}
           </div>
         )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Order, OrderStatus } from '@/types';
+import type { CancelledBy, Order, OrderStatus } from '@/types';
 import type { CartItem } from '@/hooks/useCart';
 
 const STORAGE_KEY = 'campusfood_orders';
@@ -44,8 +44,37 @@ export function useOrders() {
   };
 
   const updateStatus = (id: string, status: OrderStatus) => {
-    setOrders((current) => current.map((order) => (order.id === id ? { ...order, status } : order)));
+    // Cancelar se hace con cancelOrder, que exige un motivo
+    if (status === 'cancelado') return;
+
+    setOrders((current) =>
+      current.map((order) =>
+        order.id === id && order.status !== 'cancelado'
+          ? { ...order, status }
+          : order
+      )
+    );
   };
 
-  return { orders, addOrder, updateStatus };
+  const cancelOrder = (id: string, by: CancelledBy, reason: string) => {
+    const fallback =
+      by === 'cliente' ? 'Solicitud del cliente' : 'Cancelado por el casino';
+
+    setOrders((current) =>
+      current.map((order): Order =>
+        // Solo se puede cancelar un pedido que sigue pendiente
+        order.id === id && order.status === 'pendiente'
+          ? {
+              ...order,
+              status: 'cancelado',
+              cancelledAt: new Date().toISOString(),
+              cancelledBy: by,
+              cancelReason: reason.trim() || fallback,
+            }
+          : order
+      )
+    );
+  };
+
+  return { orders, addOrder, updateStatus, cancelOrder };
 }
