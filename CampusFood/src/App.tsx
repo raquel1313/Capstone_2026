@@ -72,7 +72,7 @@ function App() {
     subtotal,
   } = useCart();
 
-  const { orders, addOrder, updateStatus } = useOrders();
+  const { orders, addOrder, updateStatus, cancelOrder } = useOrders();
 
   const {
     notifications,
@@ -154,6 +154,7 @@ function App() {
         onLogout={logout}
         orders={orders}
         updateOrderStatus={updateStatus}
+        cancelOrder={cancelOrder}
         menu={menu}
         addMenuDay={addDay}
         updateMenuDayDate={updateDayDate}
@@ -176,7 +177,6 @@ function App() {
         closePoll={closePoll}
         reopenPoll={reopenPoll}
         deletePoll={deletePoll}
-        
       />
     );
   }
@@ -291,7 +291,14 @@ function App() {
               />
             )}
 
-            {view === 'profile' && <ProfileView user={user} orders={orders} logout={logout} />}
+            {view === 'profile' && (
+              <ProfileView
+                user={user}
+                orders={orders}
+                logout={logout}
+                cancelOrder={cancelOrder}
+              />
+            )}
           </div>
 
           <BottomNav view={view} setView={goTo} />
