@@ -5,51 +5,31 @@ import { useEffect, useRef, useState } from 'react';
 import { LogOut, ShoppingCart } from 'lucide-react';
 
 import { useCart } from '@/hooks/useCart';
-
 import type { CartItem } from '@/hooks/useCart';
-
 import { useOrders } from '@/hooks/useOrders';
-
 import { usePenalties } from '@/hooks/usePenalties';
-
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
-
 import { useMenu } from '@/hooks/useMenu';
-
 import { useProducts } from '@/hooks/useProducts';
-
 import { useVotes } from '@/hooks/useVotes';
-
 import { useReactions } from '@/hooks/useReactions';
-
 import { useAuth } from '@/hooks/useAuth';
 
 import type { Product } from '@/data';
-
 import type { View } from '@/types';
 
 import { getCommittedByProduct, withAvailability } from '@/utils/orderRules';
 
 import { Sidebar } from '@/components/Sidebar';
-
 import { BottomNav } from '@/components/BottomNav';
-
 import { HomeView } from '@/views/HomeView';
-
 import { MenuView } from '@/views/MenuView';
-
 import { OrdersView } from '@/views/OrdersView';
-
 import { ProfileView } from '@/views/ProfileView';
-
 import { CartDrawer } from '@/components/CartDrawer';
-
 import { NotificationsBell } from '@/components/NotificationsBell';
-
 import { SplashScreen } from '@/components/SplashScreen';
-
 import { Login } from '@/components/Login';
-
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 function getTodayLabel() {
@@ -62,12 +42,14 @@ function getTodayLabel() {
 
 function App() {
   const [splashDone, setSplashDone] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashChecked, setSplashChecked] = useState(false);
+
   const [view, setView] = useState<View>('home');
   const [showCart, setShowCart] = useState(false);
   const [orderCategory, setOrderCategory] = useState<string | null>(null);
 
-  // Evita descontar dos veces el stock si se hace doble clic en "retirado"
+  // Evita descontar dos veces el stock si se hace doble clic en "retirado".
   const retiredOrdersRef = useRef<Set<string>>(new Set());
 
   const { user, login, logout, error: authError } = useAuth();
@@ -98,10 +80,7 @@ function App() {
     markAsRead,
     markAllAsRead,
     dismissNotification,
-  } = useOrderNotifications(
-    orders,
-    user?.username ?? null
-  );
+  } = useOrderNotifications(orders, user?.username ?? null);
 
   const {
     menu,
@@ -142,19 +121,62 @@ function App() {
     react,
   } = useReactions();
 
+  // El splash se muestra solo una vez por sesión de pestaña.
   useEffect(() => {
-    const hideTimer = setTimeout(() => setSplashDone(true), 2500);
+    const splashKey = 'campusfood-splash-shown';
 
-    const unmountTimer = setTimeout(
-      () => setShowSplash(false),
-      3400
-    );
+    try {
+      const alreadyShown = sessionStorage.getItem(splashKey);
 
-    return () => {
-      clearTimeout(hideTimer);
-      clearTimeout(unmountTimer);
-    };
+      if (alreadyShown === 'true') {
+        setSplashDone(true);
+        setShowSplash(false);
+        setSplashChecked(true);
+        return;
+      }
+
+      // Guardar la marca inmediatamente evita que reaparezca al recargar
+      // incluso si el usuario recarga antes de terminar la animación.
+      sessionStorage.setItem(splashKey, 'true');
+      setShowSplash(true);
+      setSplashChecked(true);
+
+      const hideTimer = window.setTimeout(() => {
+        setSplashDone(true);
+      }, 2500);
+
+      const unmountTimer = window.setTimeout(() => {
+        setShowSplash(false);
+      }, 2900);
+
+      return () => {
+        window.clearTimeout(hideTimer);
+        window.clearTimeout(unmountTimer);
+      };
+    } catch {
+      // Si sessionStorage no está disponible, la app sigue funcionando
+      // y se muestra el splash una vez en esta carga.
+      setShowSplash(true);
+      setSplashChecked(true);
+
+      const hideTimer = window.setTimeout(() => {
+        setSplashDone(true);
+      }, 2500);
+
+      const unmountTimer = window.setTimeout(() => {
+        setShowSplash(false);
+      }, 2900);
+
+      return () => {
+        window.clearTimeout(hideTimer);
+        window.clearTimeout(unmountTimer);
+      };
+    }
   }, []);
+
+  if (!splashChecked) {
+    return null;
+  }
 
   if (showSplash) {
     return <SplashScreen done={splashDone} />;
@@ -164,7 +186,7 @@ function App() {
     return <Login onLogin={login} error={authError} />;
   }
 
-  // Marca el pedido como retirado y recién ahí descuenta el stock
+  // Marca el pedido como retirado y recién ahí descuenta el stock.
   const handleRetireOrder = (id: string) => {
     const order = orders.find((candidate) => candidate.id === id);
 
@@ -223,17 +245,15 @@ function App() {
     );
   }
 
-  const handleAddOrder = (
-    cartItems: CartItem[],
-    subtotal: number
-  ) => addOrder(cartItems, subtotal, user.username);
+  const handleAddOrder = (cartItems: CartItem[], subtotal: number) =>
+    addOrder(cartItems, subtotal, user.username);
 
   // Catálogo que ven los clientes: un producto queda agotado si lo marcaron
-  // a mano o si todo su stock ya está comprometido en pedidos sin retirar
+  // a mano o si todo su stock ya está comprometido en pedidos sin retirar.
   const committed = getCommittedByProduct(orders);
   const catalog = withAvailability(rawProducts, committed);
 
-  // Unidades disponibles por producto (solo los que llevan control de stock)
+  // Unidades disponibles por producto (solo los que llevan control de stock).
   const limits: Record<number, number> = {};
 
   catalog.forEach((product) => {
@@ -242,12 +262,12 @@ function App() {
     }
   });
 
-  // Productos agotados (el carrito guarda copias, así que se consulta el catálogo actual)
+  // Productos agotados (el carrito guarda copias, así que se consulta el catálogo actual).
   const soldOutIds = catalog
     .filter((product) => product.soldOut)
     .map((product) => product.id);
 
-  // No deja agregar más unidades de las que hay disponibles
+  // No deja agregar más unidades de las que hay disponibles.
   const addToCartChecked = (product: Product) => {
     const available = limits[product.id];
     const inCart =
@@ -262,13 +282,13 @@ function App() {
 
   const penalty = getStatus(user.username);
 
-  // Cambia de vista; al entrar a Cafetería desde el menú se limpia el filtro
+  // Cambia de vista; al entrar a Cafetería desde el menú se limpia el filtro.
   const goTo = (next: View) => {
     if (next === 'orders') setOrderCategory(null);
     setView(next);
   };
 
-  // Abre Cafetería, opcionalmente con una categoría ya filtrada
+  // Abre Cafetería, opcionalmente con una categoría ya filtrada.
   const openOrders = (category: string | null = null) => {
     setOrderCategory(category);
     setView('orders');
