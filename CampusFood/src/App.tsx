@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-
 import { LogOut, ShoppingCart } from 'lucide-react';
 
 import { useCart } from '@/hooks/useCart';
@@ -18,14 +17,19 @@ import { useAuth } from '@/hooks/useAuth';
 import type { Product } from '@/data';
 import type { View } from '@/types';
 
-import { getCommittedByProduct, withAvailability } from '@/utils/orderRules';
+import {
+  getCommittedByProduct,
+  withAvailability,
+} from '@/utils/orderRules';
 
 import { Sidebar } from '@/components/Sidebar';
 import { BottomNav } from '@/components/BottomNav';
+
 import { HomeView } from '@/views/HomeView';
 import { MenuView } from '@/views/MenuView';
 import { OrdersView } from '@/views/OrdersView';
 import { ProfileView } from '@/views/ProfileView';
+
 import { CartDrawer } from '@/components/CartDrawer';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { SplashScreen } from '@/components/SplashScreen';
@@ -41,6 +45,7 @@ function getTodayLabel() {
 }
 
 function App() {
+  // Splash: se muestra solo la primera vez de cada sesión del navegador.
   const [splashDone, setSplashDone] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [splashChecked, setSplashChecked] = useState(false);
@@ -121,59 +126,57 @@ function App() {
     react,
   } = useReactions();
 
-  // El splash se muestra solo una vez por sesión de pestaña.
+  // Comprueba si el splash ya se mostró en esta sesión.
   useEffect(() => {
-    const splashKey = 'campusfood-splash-shown';
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    let unmountTimer: ReturnType<typeof setTimeout> | undefined;
 
     try {
-      const alreadyShown = sessionStorage.getItem(splashKey);
+      const splashShown = sessionStorage.getItem(
+        'campusfood-splash-shown'
+      );
 
-      if (alreadyShown === 'true') {
-        setSplashDone(true);
+      if (splashShown === 'true') {
+        // Ya se mostró: entra directamente a la aplicación.
         setShowSplash(false);
         setSplashChecked(true);
         return;
       }
 
-      // Guardar la marca inmediatamente evita que reaparezca al recargar
-      // incluso si el usuario recarga antes de terminar la animación.
-      sessionStorage.setItem(splashKey, 'true');
+      // Primera apertura de esta sesión: mostrar el splash.
+      sessionStorage.setItem('campusfood-splash-shown', 'true');
+
       setShowSplash(true);
       setSplashChecked(true);
 
-      const hideTimer = window.setTimeout(() => {
+      hideTimer = setTimeout(() => {
         setSplashDone(true);
       }, 2500);
 
-      const unmountTimer = window.setTimeout(() => {
+      unmountTimer = setTimeout(() => {
         setShowSplash(false);
       }, 2900);
-
-      return () => {
-        window.clearTimeout(hideTimer);
-        window.clearTimeout(unmountTimer);
-      };
     } catch {
-      // Si sessionStorage no está disponible, la app sigue funcionando
-      // y se muestra el splash una vez en esta carga.
+      // Si el navegador bloquea sessionStorage, mostrar el splash igualmente.
       setShowSplash(true);
       setSplashChecked(true);
 
-      const hideTimer = window.setTimeout(() => {
+      hideTimer = setTimeout(() => {
         setSplashDone(true);
       }, 2500);
 
-      const unmountTimer = window.setTimeout(() => {
+      unmountTimer = setTimeout(() => {
         setShowSplash(false);
       }, 2900);
-
-      return () => {
-        window.clearTimeout(hideTimer);
-        window.clearTimeout(unmountTimer);
-      };
     }
+
+    return () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      if (unmountTimer) clearTimeout(unmountTimer);
+    };
   }, []);
 
+  // Evita mostrar la pantalla de login antes de comprobar la sesión.
   if (!splashChecked) {
     return null;
   }
@@ -202,11 +205,13 @@ function App() {
 
     retireOrder(id, user.name);
 
-    order.items.forEach((item) => adjustStock(item.id, -item.quantity));
+    order.items.forEach((item) => {
+      adjustStock(item.id, -item.quantity);
+    });
   };
 
-  // Admin y worker comparten el panel; AdminLayout decide qué secciones
-  // puede ver cada uno según user.role.
+  // Admin y worker comparten el panel.
+  // AdminLayout decide qué secciones puede ver cada uno según user.role.
   if (user.role === 'admin' || user.role === 'worker') {
     return (
       <AdminLayout
@@ -245,15 +250,17 @@ function App() {
     );
   }
 
-  const handleAddOrder = (cartItems: CartItem[], subtotal: number) =>
-    addOrder(cartItems, subtotal, user.username);
+  const handleAddOrder = (
+    cartItems: CartItem[],
+    subtotal: number
+  ) => addOrder(cartItems, subtotal, user.username);
 
-  // Catálogo que ven los clientes: un producto queda agotado si lo marcaron
-  // a mano o si todo su stock ya está comprometido en pedidos sin retirar.
+  // Un producto queda agotado si se marcó manualmente
+  // o si todo su stock está comprometido en pedidos sin retirar.
   const committed = getCommittedByProduct(orders);
   const catalog = withAvailability(rawProducts, committed);
 
-  // Unidades disponibles por producto (solo los que llevan control de stock).
+  // Unidades disponibles por producto.
   const limits: Record<number, number> = {};
 
   catalog.forEach((product) => {
@@ -262,14 +269,15 @@ function App() {
     }
   });
 
-  // Productos agotados (el carrito guarda copias, así que se consulta el catálogo actual).
+  // Productos agotados: el carrito guarda copias, así que consultamos el catálogo actual.
   const soldOutIds = catalog
     .filter((product) => product.soldOut)
     .map((product) => product.id);
 
-  // No deja agregar más unidades de las que hay disponibles.
+  // No deja agregar más unidades de las disponibles.
   const addToCartChecked = (product: Product) => {
     const available = limits[product.id];
+
     const inCart =
       cart.find((item) => item.id === product.id)?.quantity ?? 0;
 
@@ -282,13 +290,16 @@ function App() {
 
   const penalty = getStatus(user.username);
 
-  // Cambia de vista; al entrar a Cafetería desde el menú se limpia el filtro.
+  // Cambia de vista; al entrar a Pedidos se limpia el filtro.
   const goTo = (next: View) => {
-    if (next === 'orders') setOrderCategory(null);
+    if (next === 'orders') {
+      setOrderCategory(null);
+    }
+
     setView(next);
   };
 
-  // Abre Cafetería, opcionalmente con una categoría ya filtrada.
+  // Abre Pedidos, opcionalmente con una categoría filtrada.
   const openOrders = (category: string | null = null) => {
     setOrderCategory(category);
     setView('orders');
