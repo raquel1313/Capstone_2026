@@ -5,13 +5,17 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { formatPrice } from '@/data';
+
 import type { Order } from '@/types';
 
 export type OrderNotification = {
   id: string;
   orderId: string;
-  // Notificaciones guardadas antes de este cambio no tienen tipo: se tratan como "ready"
-  kind?: 'ready' | 'cancelled';
+  // Notificaciones guardadas antes no tienen tipo: se tratan como "ready"
+  kind?: 'ready' | 'cancelled' | 'adjusted';
+  // Identificador único del aviso, para no repetirlo ni volver a crearlo si se descarta
+  ref?: string;
   message: string;
   read: boolean;
   createdAt: string;
@@ -152,6 +156,10 @@ function kindOf(notification: OrderNotification) {
   return notification.kind ?? 'ready';
 }
 
+function refOf(notification: OrderNotification) {
+  return notification.ref ?? `${notification.orderId}:${kindOf(notification)}`;
+}
+
 export function useOrderNotifications(
   orders: Order[],
   username: string | null
@@ -188,13 +196,10 @@ export function useOrderNotifications(
         readStorage(dismissedKey)
       );
 
-    // Clave "pedido:tipo". Los descartados antiguos eran solo el número de pedido
+    // Los descartados antiguos eran solo el número de pedido
     // y se interpretan como avisos de "listo".
     const alreadyHandled = new Set<string>([
-      ...currentNotifications.map(
-        (notification) =>
-          `${notification.orderId}:${kindOf(notification)}`
-      ),
+      ...currentNotifications.map(refOf),
       ...currentDismissed.map((entry) =>
         entry.includes(':') ? entry : `${entry}:ready`
       ),
@@ -206,6 +211,33 @@ export function useOrderNotifications(
     for (const order of orders) {
       if (order.username !== username) {
         continue;
+      }
+
+      // El casino quitó un producto de un pedido (si se canceló completo, avisa la cancelación)
+      if (order.status !== 'cancelado') {
+        for (const adjustment of order.adjustments ?? []) {
+          if (adjustment.by !== 'personal') {
+            continue;
+          }
+
+          const ref = `${order.id}:adjusted:${adjustment.at}`;
+
+          if (alreadyHandled.has(ref)) {
+            continue;
+          }
+
+          alreadyHandled.add(ref);
+
+          newNotifications.push({
+            id: `notif-${Date.now()}-${order.id}-adjusted-${newNotifications.length}`,
+            orderId: order.id,
+            kind: 'adjusted',
+            ref,
+            message: `El casino quitó ${adjustment.quantity}x ${adjustment.name} de tu pedido ${order.id}. Motivo: ${adjustment.reason}. Nuevo total: ${formatPrice(order.subtotal)}.`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          });
+        }
       }
 
       if (order.status === 'listo') {
@@ -341,7 +373,7 @@ export function useOrderNotifications(
       return;
     }
 
-    const dismissedEntry = `${target.orderId}:${kindOf(target)}`;
+    const dismissedEntry = refOf(target);
 
     const currentDismissed =
       parseStoredArray<string>(

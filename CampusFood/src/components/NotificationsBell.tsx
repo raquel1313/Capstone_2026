@@ -77,7 +77,7 @@ function NotificationRow({
           cursor: 'grab',
         }}
       >
-        {notification.kind === 'cancelled' ? (
+        {notification.kind === 'cancelled' || notification.kind === 'adjusted' ?  (
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-50 text-red-700">
             <Ban size={16} />
           </div>

@@ -4,9 +4,9 @@ export type View = 'home' | 'menu' | 'orders' | 'profile';
 
 export type AdminView = 'dashboard' | 'menu' | 'products' | 'orders' | 'votes' | 'users';
 
-export type OrderStatus = 'pendiente' | 'listo' | 'cancelado';
+export type OrderStatus = 'pendiente' | 'listo' | 'retirado' | 'cancelado';
 
-// Quién canceló el pedido: el propio cliente o el personal del casino
+// Quién canceló o modificó el pedido: el propio cliente o el personal del casino
 export type CancelledBy = 'cliente' | 'personal';
 
 export type OrderItem = {
@@ -14,6 +14,16 @@ export type OrderItem = {
   name: string;
   price: number;
   quantity: number;
+};
+
+// Registro de cada producto que se quitó de un pedido pendiente
+export type OrderAdjustment = {
+  at: string;
+  by: CancelledBy;
+  itemId: number;
+  name: string;
+  quantity: number;
+  reason: string;
 };
 
 export type Order = {
@@ -26,4 +36,7 @@ export type Order = {
   cancelledAt?: string;
   cancelledBy?: CancelledBy;
   cancelReason?: string;
+  retiredAt?: string;
+  retiredBy?: string;
+  adjustments?: OrderAdjustment[];
 };

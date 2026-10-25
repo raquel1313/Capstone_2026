@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Check, Eye, EyeOff, Package, Plus, Pencil, RotateCcw, Trash2, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Minus, Package, Plus, Pencil, RotateCcw, Trash2, X } from 'lucide-react';
 
 import type { Product } from '@/data';
 
@@ -28,9 +28,33 @@ const EMPTY_FORM = {
   tone: TONE_OPTIONS[0].value,
   image: '',
   soldOut: false,
+  stock: '', // texto: vacío = sin control de stock
 };
 
 type FormValues = typeof EMPTY_FORM;
+
+type SaveValues = Omit<FormValues, 'stock'> & { stock?: number };
+
+function toSaveValues(form: FormValues): SaveValues {
+  const { stock, ...rest } = form;
+  const raw = stock.trim();
+  const parsed = raw === '' ? NaN : Number(raw);
+
+  return {
+    ...rest,
+    stock: Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : undefined,
+  };
+}
+
+// Agotado a mano, o sin unidades disponibles por stock
+function isSoldOutNow(product: Product, committed: number) {
+  const available =
+    typeof product.stock === 'number'
+      ? Math.max(0, product.stock - committed)
+      : undefined;
+
+  return Boolean(product.soldOut) || available === 0;
+}
 
 function ProductForm({
   initial,
@@ -38,7 +62,7 @@ function ProductForm({
   onCancel,
 }: {
   initial: FormValues;
-  onSave: (values: FormValues) => void;
+  onSave: (values: SaveValues) => void;
   onCancel: () => void;
 }) {
   const [form, setForm] = useState(initial);
@@ -55,7 +79,7 @@ function ProductForm({
       return;
     }
 
-    onSave(form);
+    onSave(toSaveValues(form));
   };
 
   return (
@@ -115,10 +139,26 @@ function ProductForm({
         </div>
 
         <div>
+          <label className="text-xs text-black/40">Stock (unidades)</label>
+          <input
+            type="number"
+            min={0}
+            value={form.stock}
+            onChange={(event) => setForm({ ...form, stock: event.target.value })}
+            placeholder="Vacío = sin control de stock"
+            className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+          />
+          <p className="mt-1 text-[11px] text-black/35">
+            Baja solo cuando un pedido se marca como retirado.
+          </p>
+        </div>
+
+        <div>
           <label className="text-xs text-black/40">Color de fondo</label>
           <div className="mt-1.5 flex flex-wrap gap-2">
             {TONE_OPTIONS.map((option) => (
               <button
+                type="button"
                 key={option.value}
                 onClick={() => setForm({ ...form, tone: option.value })}
                 className={`h-8 w-8 rounded-full bg-gradient-to-br ${
@@ -161,6 +201,7 @@ function ProductForm({
 
       <div className="mt-4 flex gap-2">
         <button
+          type="button"
           onClick={handleSave}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#4e0611] py-2.5 text-xs font-semibold text-white hover:bg-[#36040c]"
         >
@@ -168,6 +209,7 @@ function ProductForm({
         </button>
 
         <button
+          type="button"
           onClick={onCancel}
           className="rounded-full bg-[#f8edef] px-4 py-2.5 text-xs font-medium text-black/50 hover:bg-black/10"
         >
@@ -180,19 +222,29 @@ function ProductForm({
 
 function ProductCard({
   product,
+  committed,
   onSave,
   onRemove,
   onToggleSoldOut,
+  onSetStock,
 }: {
   product: Product;
-  onSave: (values: FormValues) => void;
+  committed: number;
+  onSave: (values: SaveValues) => void;
   onRemove: () => void;
   onToggleSoldOut: () => void;
+  onSetStock: (stock: number) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const soldOut = product.soldOut ?? false;
+  const manualSoldOut = product.soldOut ?? false;
+  const hasStock = typeof product.stock === 'number';
+  const available = hasStock
+    ? Math.max(0, (product.stock as number) - committed)
+    : undefined;
+  const autoSoldOut = !manualSoldOut && available === 0;
+  const soldOut = manualSoldOut || autoSoldOut;
 
   if (editing) {
     return (
@@ -207,8 +259,9 @@ function ProductCard({
             typeof product.image === 'string'
               ? product.image
               : product.image?.src ?? '',
-          soldOut,
-          }}
+          soldOut: manualSoldOut,
+          stock: hasStock ? String(product.stock) : '',
+        }}
         onSave={(values) => {
           onSave(values);
           setEditing(false);
@@ -265,6 +318,7 @@ function ProductCard({
 
         <div className="flex shrink-0 gap-1.5">
           <button
+            type="button"
             onClick={() => setEditing(true)}
             aria-label={`Editar ${product.name}`}
             className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
@@ -274,6 +328,7 @@ function ProductCard({
 
           {confirmingDelete ? (
             <button
+              type="button"
               onClick={onRemove}
               aria-label={`Confirmar eliminación de ${product.name}`}
               className="grid h-8 w-8 place-items-center rounded-full bg-red-500 text-white transition hover:bg-red-600"
@@ -282,6 +337,7 @@ function ProductCard({
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => setConfirmingDelete(true)}
               aria-label={`Eliminar ${product.name}`}
               className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500"
@@ -292,6 +348,7 @@ function ProductCard({
 
           {confirmingDelete && (
             <button
+              type="button"
               onClick={() => setConfirmingDelete(false)}
               aria-label="Cancelar eliminación"
               className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10"
@@ -302,16 +359,66 @@ function ProductCard({
         </div>
       </div>
 
+      {/* Stock */}
+      <div className="mt-3 rounded-xl bg-[#f5f5f3] px-3 py-2.5">
+        {hasStock ? (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-black/50">Stock en bodega</span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSetStock(Math.max(0, (product.stock as number) - 1))}
+                  aria-label={`Bajar stock de ${product.name}`}
+                  className="grid h-6 w-6 place-items-center rounded-full bg-white text-black/55 transition hover:bg-black/5"
+                >
+                  <Minus size={11} />
+                </button>
+
+                <span className="w-7 text-center text-sm font-semibold">
+                  {product.stock}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => onSetStock((product.stock as number) + 1)}
+                  aria-label={`Subir stock de ${product.name}`}
+                  className="grid h-6 w-6 place-items-center rounded-full bg-white text-black/55 transition hover:bg-black/5"
+                >
+                  <Plus size={11} />
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-1.5 text-[11px] text-black/40">
+              En pedidos sin retirar: {committed} · Disponibles: {available}
+            </p>
+
+            {autoSoldOut && (
+              <p className="mt-1 text-[11px] font-medium text-red-700">
+                Agotado automático: todo el stock está comprometido en pedidos.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-[11px] text-black/40">
+            Sin control de stock. Edita el producto para cargar unidades.
+          </p>
+        )}
+      </div>
+
       <button
+        type="button"
         onClick={onToggleSoldOut}
         className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition ${
-          soldOut
+          manualSoldOut
             ? 'bg-[#4e0611] text-white hover:bg-[#36040c]'
             : 'bg-[#f8edef] text-black/60 hover:bg-black/10 hover:text-[#4e0611]'
         }`}
       >
-        {soldOut ? <Eye size={13} /> : <EyeOff size={13} />}
-        {soldOut ? 'Volver a disponible' : 'Marcar como agotado'}
+        {manualSoldOut ? <Eye size={13} /> : <EyeOff size={13} />}
+        {manualSoldOut ? 'Volver a disponible' : 'Marcar como agotado'}
       </button>
     </div>
   );
@@ -319,12 +426,14 @@ function ProductCard({
 
 export function AdminProductsView({
   products,
+  committedByProduct,
   addProduct,
   updateProduct,
   removeProduct,
   resetProducts,
 }: {
   products: Product[];
+  committedByProduct: Record<number, number>;
   addProduct: (product: Omit<Product, 'id'>) => void;
   updateProduct: (id: number, updates: Partial<Product>) => void;
   removeProduct: (id: number) => void;
@@ -340,7 +449,9 @@ export function AdminProductsView({
     ...Array.from(new Set(products.map((p) => p.category))),
   ];
 
-  const soldOutCount = products.filter((p) => p.soldOut).length;
+  const soldOutCount = products.filter((p) =>
+    isSoldOutNow(p, committedByProduct[p.id] ?? 0)
+  ).length;
 
   const filteredByCategory =
     categoryFilter === 'todas'
@@ -348,7 +459,7 @@ export function AdminProductsView({
       : products.filter((p) => p.category === categoryFilter);
 
   const filteredByAvailability = filteredByCategory.filter((p) => {
-    const isSoldOut = p.soldOut ?? false;
+    const isSoldOut = isSoldOutNow(p, committedByProduct[p.id] ?? 0);
 
     if (availabilityFilter === 'disponibles') return !isSoldOut;
     if (availabilityFilter === 'agotados') return isSoldOut;
@@ -357,7 +468,9 @@ export function AdminProductsView({
 
   // Disponibles primero, agotados al final
   const filtered = [...filteredByAvailability].sort(
-    (a, b) => Number(a.soldOut ?? false) - Number(b.soldOut ?? false)
+    (a, b) =>
+      Number(isSoldOutNow(a, committedByProduct[a.id] ?? 0)) -
+      Number(isSoldOutNow(b, committedByProduct[b.id] ?? 0))
   );
 
   return (
@@ -366,6 +479,7 @@ export function AdminProductsView({
         <div className="flex gap-2">
           {categories.map((category) => (
             <button
+              type="button"
               key={category}
               onClick={() => setCategoryFilter(category)}
               className={`rounded-full px-4 py-2 text-sm font-medium capitalize transition ${
@@ -381,6 +495,7 @@ export function AdminProductsView({
 
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={resetProducts}
             className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-medium text-black/45 transition hover:bg-[#f8edef] hover:text-[#4e0611]"
           >
@@ -388,6 +503,7 @@ export function AdminProductsView({
           </button>
 
           <button
+            type="button"
             onClick={() => setAdding(true)}
             className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
           >
@@ -398,6 +514,7 @@ export function AdminProductsView({
 
       <div className="mb-5 flex gap-2">
         <button
+          type="button"
           onClick={() => setAvailabilityFilter('todos')}
           className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
             availabilityFilter === 'todos'
@@ -409,6 +526,7 @@ export function AdminProductsView({
         </button>
 
         <button
+          type="button"
           onClick={() => setAvailabilityFilter('disponibles')}
           className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
             availabilityFilter === 'disponibles'
@@ -420,6 +538,7 @@ export function AdminProductsView({
         </button>
 
         <button
+          type="button"
           onClick={() => setAvailabilityFilter('agotados')}
           className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
             availabilityFilter === 'agotados'
@@ -447,11 +566,13 @@ export function AdminProductsView({
           <ProductCard
             key={product.id}
             product={product}
+            committed={committedByProduct[product.id] ?? 0}
             onSave={(values) => updateProduct(product.id, values)}
             onRemove={() => removeProduct(product.id)}
             onToggleSoldOut={() =>
               updateProduct(product.id, { soldOut: !product.soldOut })
             }
+            onSetStock={(stock) => updateProduct(product.id, { stock })}
           />
         ))}
       </div>

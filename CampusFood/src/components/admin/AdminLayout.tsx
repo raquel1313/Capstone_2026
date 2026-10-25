@@ -15,7 +15,11 @@ import type { Product } from '@/data';
 
 import type { User } from '@/hooks/useAuth';
 
+import type { BlockedUser } from '@/hooks/usePenalties';
+
 import type { VotePoll } from '@/hooks/useVotes';
+
+import { getCommittedByProduct, getShortageIds } from '@/utils/orderRules';
 
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 
@@ -65,6 +69,10 @@ export function AdminLayout({
   orders,
   updateOrderStatus,
   cancelOrder,
+  retireOrder,
+  removeOrderItem,
+  blockedUsers,
+  liftBlock,
   menu,
   addMenuDay,
   updateMenuDayDate,
@@ -93,6 +101,16 @@ export function AdminLayout({
   orders: Order[];
   updateOrderStatus: (id: string, status: OrderStatus) => void;
   cancelOrder: (id: string, by: CancelledBy, reason: string) => void;
+  retireOrder: (id: string) => void;
+  removeOrderItem: (
+    orderId: string,
+    itemId: number,
+    quantity: number,
+    by: CancelledBy,
+    reason: string
+  ) => void;
+  blockedUsers: BlockedUser[];
+  liftBlock: (username: string) => void;
   menu: LunchDay[];
   addMenuDay: (date: string) => void;
   updateMenuDayDate: (dayId: string, date: string) => void;
@@ -138,6 +156,9 @@ export function AdminLayout({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.role, adminView]);
+
+  // Unidades de cada producto que están en pedidos aún sin retirar
+  const committedByProduct = getCommittedByProduct(orders);
 
   return (
     <div className="flex min-h-screen bg-[#f8edef]">
@@ -206,9 +227,11 @@ export function AdminLayout({
               orders={orders}
               updateStatus={updateOrderStatus}
               cancelOrder={cancelOrder}
-              soldOutProductIds={products
-                .filter((product) => product.soldOut)
-                .map((product) => product.id)}
+              retireOrder={retireOrder}
+              removeOrderItem={removeOrderItem}
+              shortageProductIds={getShortageIds(products, committedByProduct)}
+              blockedUsers={blockedUsers}
+              liftBlock={liftBlock}
             />
           )}
 
@@ -230,6 +253,7 @@ export function AdminLayout({
           {adminView === 'products' && (
             <AdminProductsView
               products={products}
+              committedByProduct={committedByProduct}
               addProduct={addProduct}
               updateProduct={updateProduct}
               removeProduct={removeProduct}

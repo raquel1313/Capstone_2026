@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { LogOut, ShoppingCart } from 'lucide-react';
 
@@ -9,6 +9,8 @@ import { useCart } from '@/hooks/useCart';
 import type { CartItem } from '@/hooks/useCart';
 
 import { useOrders } from '@/hooks/useOrders';
+
+import { usePenalties } from '@/hooks/usePenalties';
 
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 
@@ -22,7 +24,11 @@ import { useReactions } from '@/hooks/useReactions';
 
 import { useAuth } from '@/hooks/useAuth';
 
+import type { Product } from '@/data';
+
 import type { View } from '@/types';
+
+import { getCommittedByProduct, withAvailability } from '@/utils/orderRules';
 
 import { Sidebar } from '@/components/Sidebar';
 
@@ -61,6 +67,9 @@ function App() {
   const [showCart, setShowCart] = useState(false);
   const [orderCategory, setOrderCategory] = useState<string | null>(null);
 
+  // Evita descontar dos veces el stock si se hace doble clic en "retirado"
+  const retiredOrdersRef = useRef<Set<string>>(new Set());
+
   const { user, login, logout, error: authError } = useAuth();
 
   const {
@@ -72,7 +81,16 @@ function App() {
     subtotal,
   } = useCart();
 
-  const { orders, addOrder, updateStatus, cancelOrder } = useOrders();
+  const {
+    orders,
+    addOrder,
+    updateStatus,
+    cancelOrder,
+    retireOrder,
+    removeOrderItem,
+  } = useOrders();
+
+  const { getStatus, blockedUsers, liftBlock } = usePenalties(orders);
 
   const {
     notifications,
@@ -98,10 +116,11 @@ function App() {
   } = useMenu();
 
   const {
-    products,
+    products: rawProducts,
     addProduct,
     updateProduct,
     removeProduct,
+    adjustStock,
     resetProducts,
   } = useProducts();
 
@@ -145,6 +164,25 @@ function App() {
     return <Login onLogin={login} error={authError} />;
   }
 
+  // Marca el pedido como retirado y recién ahí descuenta el stock
+  const handleRetireOrder = (id: string) => {
+    const order = orders.find((candidate) => candidate.id === id);
+
+    if (
+      !order ||
+      order.status !== 'listo' ||
+      retiredOrdersRef.current.has(id)
+    ) {
+      return;
+    }
+
+    retiredOrdersRef.current.add(id);
+
+    retireOrder(id, user.name);
+
+    order.items.forEach((item) => adjustStock(item.id, -item.quantity));
+  };
+
   // Admin y worker comparten el panel; AdminLayout decide qué secciones
   // puede ver cada uno según user.role.
   if (user.role === 'admin' || user.role === 'worker') {
@@ -155,6 +193,10 @@ function App() {
         orders={orders}
         updateOrderStatus={updateStatus}
         cancelOrder={cancelOrder}
+        retireOrder={handleRetireOrder}
+        removeOrderItem={removeOrderItem}
+        blockedUsers={blockedUsers}
+        liftBlock={liftBlock}
         menu={menu}
         addMenuDay={addDay}
         updateMenuDayDate={updateDayDate}
@@ -165,7 +207,7 @@ function App() {
         toggleMenuDishSoldOut={toggleSoldOut}
         resetMenu={resetMenu}
         getReactionCounts={getReactionCounts}
-        products={products}
+        products={rawProducts}
         addProduct={addProduct}
         updateProduct={updateProduct}
         removeProduct={removeProduct}
@@ -186,10 +228,39 @@ function App() {
     subtotal: number
   ) => addOrder(cartItems, subtotal, user.username);
 
-  // Productos que se agotaron (el carrito guarda copias, así que se consulta el catálogo actual)
-  const soldOutIds = products
+  // Catálogo que ven los clientes: un producto queda agotado si lo marcaron
+  // a mano o si todo su stock ya está comprometido en pedidos sin retirar
+  const committed = getCommittedByProduct(orders);
+  const catalog = withAvailability(rawProducts, committed);
+
+  // Unidades disponibles por producto (solo los que llevan control de stock)
+  const limits: Record<number, number> = {};
+
+  catalog.forEach((product) => {
+    if (typeof product.available === 'number') {
+      limits[product.id] = product.available;
+    }
+  });
+
+  // Productos agotados (el carrito guarda copias, así que se consulta el catálogo actual)
+  const soldOutIds = catalog
     .filter((product) => product.soldOut)
     .map((product) => product.id);
+
+  // No deja agregar más unidades de las que hay disponibles
+  const addToCartChecked = (product: Product) => {
+    const available = limits[product.id];
+    const inCart =
+      cart.find((item) => item.id === product.id)?.quantity ?? 0;
+
+    if (available !== undefined && inCart >= available) {
+      return;
+    }
+
+    addToCart(product);
+  };
+
+  const penalty = getStatus(user.username);
 
   // Cambia de vista; al entrar a Cafetería desde el menú se limpia el filtro
   const goTo = (next: View) => {
@@ -261,9 +332,9 @@ function App() {
               <HomeView
                 setView={goTo}
                 openOrders={openOrders}
-                addToCart={addToCart}
+                addToCart={addToCartChecked}
                 lunchDays={menu}
-                products={products}
+                products={catalog}
                 poll={poll}
                 isPollOpen={isPollOpen}
                 hasVoted={hasVoted}
@@ -284,8 +355,8 @@ function App() {
 
             {view === 'orders' && (
               <OrdersView
-                products={products}
-                addToCart={addToCart}
+                products={catalog}
+                addToCart={addToCartChecked}
                 category={orderCategory}
                 setCategory={setOrderCategory}
               />
@@ -297,6 +368,16 @@ function App() {
                 orders={orders}
                 logout={logout}
                 cancelOrder={cancelOrder}
+                removeOrderItem={(orderId, itemId, quantity) =>
+                  removeOrderItem(
+                    orderId,
+                    itemId,
+                    quantity,
+                    'cliente',
+                    'Solicitud del cliente'
+                  )
+                }
+                penalty={penalty}
               />
             )}
           </div>
@@ -318,6 +399,8 @@ function App() {
           }}
           addOrder={handleAddOrder}
           soldOutIds={soldOutIds}
+          limits={limits}
+          blockedUntil={penalty.isBlocked ? penalty.blockedUntil : null}
         />
       )}
     </main>

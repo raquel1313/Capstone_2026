@@ -18,14 +18,18 @@ export type Product = {
   tone: string;
   image?: string | StaticImageData;
   soldOut?: boolean;
+  // Unidades en bodega. Sin valor = producto sin control de stock.
+  stock?: number;
+  // Calculado en App: stock menos lo comprometido en pedidos. No se guarda.
+  available?: number;
 };
 
 export const products: Product[] = [
-  { id: 1, name: 'Queque de zanahoria', description: 'Suave, casero y con nueces', price: 2990, category: 'Dulce', tone: 'from-amber-100 to-orange-200', image: foto1 },
-  { id: 2, name: 'Galleta con chips', description: 'Recién horneada, 80 g', price: 1990, category: 'Dulce', tone: 'from-yellow-100 to-amber-200', image: foto2 },
-  { id: 3, name: 'Coca-Cola Zero', description: 'Lata 350 ml', price: 2490, category: 'Bebidas', tone: 'from-rose-100 to-red-200', image: foto3 },
-  { id: 4, name: 'Agua mineral', description: 'Botella 500 ml', price: 1290, category: 'Bebidas', tone: 'from-sky-100 to-cyan-200', image: foto4 },
-  { id: 5, name: 'Barra de cereal', description: 'Avena, miel y frutos secos', price: 1690, category: 'Snacks', tone: 'from-lime-100 to-green-200', image: foto5 },
+  { id: 1, name: 'Queque de zanahoria', description: 'Suave, casero y con nueces', price: 2990, category: 'Dulce', tone: 'from-amber-100 to-orange-200', image: foto1, stock: 12 },
+  { id: 2, name: 'Galleta con chips', description: 'Recién horneada, 80 g', price: 1990, category: 'Dulce', tone: 'from-yellow-100 to-amber-200', image: foto2, stock: 20 },
+  { id: 3, name: 'Coca-Cola Zero', description: 'Lata 350 ml', price: 2490, category: 'Bebidas', tone: 'from-rose-100 to-red-200', image: foto3, stock: 24 },
+  { id: 4, name: 'Agua mineral', description: 'Botella 500 ml', price: 1290, category: 'Bebidas', tone: 'from-sky-100 to-cyan-200', image: foto4, stock: 24 },
+  { id: 5, name: 'Barra de cereal', description: 'Avena, miel y frutos secos', price: 1690, category: 'Snacks', tone: 'from-lime-100 to-green-200', image: foto5, stock: 15 },
 ];
 
 // Un plato individual dentro de un día

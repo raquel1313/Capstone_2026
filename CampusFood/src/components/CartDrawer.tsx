@@ -12,6 +12,7 @@ import {
 import logo from '@/assets/images/logo2.png';
 import { formatPrice } from '@/data';
 import type { CartItem } from '@/hooks/useCart';
+import { formatDateTime } from '@/utils/orderRules';
 
 interface CartDrawerProps {
   cart: CartItem[];
@@ -22,6 +23,10 @@ interface CartDrawerProps {
   goToOrders: () => void;
   addOrder: (cart: CartItem[], subtotal: number) => string;
   soldOutIds: number[];
+  // Unidades disponibles por producto (solo los que llevan control de stock)
+  limits: Record<number, number>;
+  // Si el cliente está bloqueado por faltas: hasta cuándo (ms), o null
+  blockedUntil: number | null;
 }
 
 export function CartDrawer({
@@ -33,6 +38,8 @@ export function CartDrawer({
   goToOrders,
   addOrder,
   soldOutIds,
+  limits,
+  blockedUntil,
 }: CartDrawerProps) {
   const [ordered, setOrdered] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
@@ -43,8 +50,19 @@ export function CartDrawer({
     soldOutIdsSet.has(item.id)
   );
 
+  // Productos cuyo stock bajó después de agregarlos al carrito
+  const hasOverLimit = cart.some(
+    (item) =>
+      limits[item.id] !== undefined &&
+      !soldOutIdsSet.has(item.id) &&
+      item.quantity > limits[item.id]
+  );
+
+  const isBlocked = blockedUntil !== null;
+  const cannotOrder = hasSoldOutItem || hasOverLimit || isBlocked;
+
   const handleOrder = () => {
-    if (cart.length === 0 || hasSoldOutItem) {
+    if (cart.length === 0 || cannotOrder) {
       return;
     }
 
@@ -107,7 +125,9 @@ export function CartDrawer({
 
             <p className="mt-4 max-w-xs text-sm leading-6 text-black/45">
               Presenta este código en el mesón cuando tu pedido esté listo.
-              El pago se realiza al momento del retiro.
+              El pago se realiza al momento del retiro. Si ya no lo quieres,
+              cancélalo desde Mi perfil: es gratis durante los primeros 5
+              minutos.
             </p>
 
             <button
@@ -147,6 +167,16 @@ export function CartDrawer({
           </div>
         ) : (
           <>
+            {isBlocked && blockedUntil !== null && (
+              <p
+                role="alert"
+                className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+              >
+                No puedes hacer pedidos hasta el {formatDateTime(blockedUntil)}{' '}
+                por acumular faltas. Revisa el detalle en Mi perfil.
+              </p>
+            )}
+
             {hasSoldOutItem && (
               <p
                 role="alert"
@@ -157,9 +187,21 @@ export function CartDrawer({
               </p>
             )}
 
+            {hasOverLimit && (
+              <p
+                role="alert"
+                className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+              >
+                Hay menos unidades disponibles de las que tienes en el
+                carrito. Baja la cantidad para confirmar tu pedido.
+              </p>
+            )}
+
             <div className="flex-1 space-y-4 overflow-y-auto py-8">
               {cart.map((item) => {
                 const isSoldOut = soldOutIdsSet.has(item.id);
+                const max = limits[item.id];
+                const atLimit = max !== undefined && item.quantity >= max;
 
                 return (
                   <div
@@ -197,6 +239,9 @@ export function CartDrawer({
 
                       <p className="mt-1 text-xs text-black/45">
                         {formatPrice(item.price)}
+                        {max !== undefined && !isSoldOut && max <= 5
+                          ? ` · Quedan ${max}`
+                          : ''}
                       </p>
 
                       <div className="mt-2 flex items-center gap-2">
@@ -220,10 +265,10 @@ export function CartDrawer({
                           onClick={() =>
                             updateQuantity(item.id, 1)
                           }
-                          disabled={isSoldOut}
+                          disabled={isSoldOut || atLimit}
                           aria-label={`Agregar una unidad de ${item.name}`}
                           className={`grid h-6 w-6 place-items-center rounded-full text-white ${
-                            isSoldOut
+                            isSoldOut || atLimit
                               ? 'cursor-not-allowed bg-black/25'
                               : 'bg-[#4e0611]'
                           }`}
@@ -260,7 +305,7 @@ export function CartDrawer({
               <button
                 type="button"
                 onClick={handleOrder}
-                disabled={hasSoldOutItem}
+                disabled={cannotOrder}
                 className="mt-5 w-full rounded-full bg-[#4e0611] py-4 text-sm font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#4e0611]"
               >
                 Confirmar pedido

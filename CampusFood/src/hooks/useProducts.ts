@@ -36,7 +36,18 @@ export function useProducts() {
     setProducts((current) => current.filter((product) => product.id !== id));
   };
 
+  // Suma o resta unidades al stock (solo si el producto lleva control de stock)
+  const adjustStock = (id: number, delta: number) => {
+    setProducts((current) =>
+      current.map((product) =>
+        product.id === id && typeof product.stock === 'number'
+          ? { ...product, stock: Math.max(0, product.stock + delta) }
+          : product
+      )
+    );
+  };
+
   const resetProducts = () => setProducts(defaultProducts);
 
-  return { products, addProduct, updateProduct, removeProduct, resetProducts };
+  return { products, addProduct, updateProduct, removeProduct, adjustStock, resetProducts };
 }
