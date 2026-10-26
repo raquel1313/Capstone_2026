@@ -47,6 +47,7 @@ const INPUT_CLASS =
   'mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]';
 
 const LOCKED_MESSAGE = 'Debe quedar al menos un administrador activo';
+const HISTORY_MESSAGE = 'Tiene pedidos registrados: desactívalo en vez de eliminarlo';
 
 function getInitials(name: string) {
   return name
@@ -219,6 +220,7 @@ function UserForm({
 function UserCard({
   user,
   locked,
+  hasHistory,
   validate,
   onSave,
   onRemove,
@@ -226,6 +228,7 @@ function UserCard({
 }: {
   user: UserItem;
   locked: boolean; // último administrador activo: no se puede borrar ni desactivar
+  hasHistory: boolean; // tiene pedidos registrados: no se puede borrar, solo desactivar
   validate: (values: FormValues) => string | null;
   onSave: (values: FormValues) => void;
   onRemove: () => void;
@@ -295,6 +298,11 @@ function UserCard({
         <div className="min-w-0">
           <p className="truncate font-semibold">{user.name}</p>
           <p className="mt-1 truncate text-xs text-black/45">{user.username}</p>
+          {hasHistory && (
+            <p className="mt-1 text-[11px] leading-tight text-amber-700">
+              Tiene historial de pedidos: se puede desactivar, no eliminar.
+            </p>
+          )}
         </div>
 
         <div className="flex shrink-0 gap-1.5">
@@ -317,8 +325,8 @@ function UserCard({
           ) : (
             <button
               onClick={() => setConfirmingDelete(true)}
-              disabled={locked}
-              title={locked ? LOCKED_MESSAGE : undefined}
+              disabled={locked || hasHistory}
+              title={locked ? LOCKED_MESSAGE : hasHistory ? HISTORY_MESSAGE : undefined}
               aria-label={`Eliminar ${user.name}`}
               className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#f8edef] disabled:hover:text-black/50"
             >
@@ -375,7 +383,7 @@ function MetricCard({
   );
 }
 
-export function AdminUsersView() {
+export function AdminUsersView({ orders }: { orders: { username: string }[] }) {
   const { users, addUser, updateUser, removeUser, resetUsers } = useUsers();
 
   const [adding, setAdding] = useState(false);
@@ -390,6 +398,9 @@ export function AdminUsersView() {
     const timer = setTimeout(() => setFeedback(null), 3000);
     return () => clearTimeout(timer);
   }, [feedback]);
+
+  // Usuarios con al menos un pedido: se conservan para no perder el historial.
+  const usernamesWithOrders = new Set(orders.map((order) => order.username));
 
   const activeAdmins = users.filter((u) => u.role === 'admin' && u.status === 'Activo');
   const isLastAdmin = (u: UserItem) =>
@@ -523,6 +534,7 @@ export function AdminUsersView() {
             key={user.id}
             user={user}
             locked={isLastAdmin(user)}
+            hasHistory={usernamesWithOrders.has(user.username)}
             validate={(values) => validate(values, user)}
             onSave={(values) => {
               updateUser(user.id, {

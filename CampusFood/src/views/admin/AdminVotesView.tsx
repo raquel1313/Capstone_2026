@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Calendar, Check, Lock, Plus, RotateCcw, Trash2, Unlock, X } from 'lucide-react';
+import { Calendar, Check, History, Lock, Plus, RotateCcw, Trash2, Unlock, X } from 'lucide-react';
 
 import type { VotePoll } from '@/hooks/useVotes';
 
@@ -320,8 +320,116 @@ function PollResults({
   );
 }
 
+function formatShort(date: string) {
+  return new Date(date + 'T00:00:00').toLocaleDateString('es-CL', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+// Historial de encuestas anteriores, con filtro por rango de fechas.
+function PollHistory({ polls }: { polls: VotePoll[] }) {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const invalidRange = Boolean(from && to && to < from);
+
+  // Una encuesta aparece si su período se cruza con el rango elegido.
+  const filtered = polls.filter((poll) => {
+    if (invalidRange) return true;
+    if (from && poll.endDate < from) return false;
+    if (to && poll.startDate > to) return false;
+    return true;
+  });
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[#4e0611]">
+        <History size={16} /> Historial de encuestas
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-end gap-3 rounded-[24px] bg-white p-4">
+        <div>
+          <label className="text-xs text-black/40">Desde</label>
+          <input
+            type="date"
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+            className="mt-1 block rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-black/40">Hasta</label>
+          <input
+            type="date"
+            value={to}
+            onChange={(event) => setTo(event.target.value)}
+            className="mt-1 block rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+          />
+        </div>
+
+        {(from || to) && (
+          <button
+            onClick={() => {
+              setFrom('');
+              setTo('');
+            }}
+            className="rounded-full bg-[#f8edef] px-4 py-2 text-xs font-medium text-black/50 hover:bg-black/10"
+          >
+            Limpiar filtro
+          </button>
+        )}
+
+        <p className="ml-auto text-xs text-black/40">
+          {filtered.length} de {polls.length} encuesta{polls.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+
+      {invalidRange && (
+        <p className="mt-2 text-xs text-red-500">
+          La fecha "Hasta" no puede ser anterior a "Desde".
+        </p>
+      )}
+
+      <div className="mt-3 space-y-3">
+        {filtered.map((poll) => {
+          const total = poll.options.reduce((sum, option) => sum + option.votes, 0);
+          const top = poll.options.reduce(
+            (max, option) => (option.votes > max.votes ? option : max),
+            poll.options[0]
+          );
+
+          return (
+            <div key={poll.id} className="rounded-[24px] bg-white p-4">
+              <p className="text-xs text-black/40">
+                {formatShort(poll.startDate)} — {formatShort(poll.endDate)}
+              </p>
+              <p className="mt-1 font-semibold">{poll.question}</p>
+              <p className="mt-1 text-xs text-black/45">
+                {total} voto{total !== 1 ? 's' : ''}
+                {total > 0 && top ? ` · Ganó: ${top.label} (${top.votes})` : ''}
+              </p>
+            </div>
+          );
+        })}
+
+        {filtered.length === 0 && (
+          <div className="rounded-[24px] bg-white p-8 text-center text-sm text-black/45">
+            {polls.length === 0
+              ? 'Aún no hay encuestas anteriores.'
+              : 'No hay encuestas en ese rango de fechas.'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AdminVotesView({
   poll,
+  pollHistory = [],
   isOpen,
   createPoll,
   closePoll,
@@ -329,6 +437,7 @@ export function AdminVotesView({
   deletePoll,
 }: {
   poll: VotePoll | null;
+  pollHistory?: VotePoll[];
   isOpen: boolean;
   createPoll: (
     question: string,
@@ -344,13 +453,17 @@ export function AdminVotesView({
 
   if (!poll || creatingNew) {
     return (
-      <CreatePollForm
-        onCreate={(question, options, start, end) => {
-          createPoll(question, options, start, end);
-          setCreatingNew(false);
-        }}
-        onCancel={() => setCreatingNew(false)}
-      />
+      <div>
+        <CreatePollForm
+          onCreate={(question, options, start, end) => {
+            createPoll(question, options, start, end);
+            setCreatingNew(false);
+          }}
+          onCancel={() => setCreatingNew(false)}
+        />
+
+        <PollHistory polls={pollHistory} />
+      </div>
     );
   }
 
@@ -377,6 +490,8 @@ export function AdminVotesView({
         onReopen={reopenPoll}
         onDelete={deletePoll}
       />
+
+      <PollHistory polls={pollHistory} />
     </div>
   );
 }

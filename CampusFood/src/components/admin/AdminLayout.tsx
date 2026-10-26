@@ -264,6 +264,7 @@ export function AdminLayout({
           {adminView === 'votes' && user.role === 'admin' && (
             <AdminVotesView
               poll={poll}
+              pollHistory={pollHistory} 
               isOpen={isPollOpen}
               createPoll={createPoll}
               closePoll={closePoll}
@@ -273,7 +274,7 @@ export function AdminLayout({
           )}
 
           {adminView === 'users' && user.role === 'admin' && (
-            <AdminUsersView />
+            <AdminUsersView orders={orders} />
           )}
         </div>
       </div>
