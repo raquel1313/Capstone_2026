@@ -2,13 +2,40 @@ import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
-const TONE_MAP: Record<string, string> = {
-  amber: 'from-amber-100 to-orange-200',
-  yellow: 'from-yellow-100 to-amber-200',
-  rose: 'from-rose-100 to-red-200',
-  sky: 'from-sky-100 to-cyan-200',
-  lime: 'from-lime-100 to-green-200',
+const THEMES = [
+  'amber',
+  'yellow',
+  'rose',
+  'sky',
+  'lime',
+] as const;
+
+type ProductTheme =
+  (typeof THEMES)[number];
+
+const TONE_MAP: Record<
+  ProductTheme,
+  string
+> = {
+  amber:
+    'from-amber-100 to-orange-200',
+  yellow:
+    'from-yellow-100 to-amber-200',
+  rose:
+    'from-rose-100 to-red-200',
+  sky:
+    'from-sky-100 to-cyan-200',
+  lime:
+    'from-lime-100 to-green-200',
 };
+
+function isProductTheme(
+  value: string,
+): value is ProductTheme {
+  return THEMES.includes(
+    value as ProductTheme,
+  );
+}
 
 export async function GET() {
   try {
@@ -44,36 +71,64 @@ export async function GET() {
 
     return Response.json({
       products: products.map(
-        (product) => ({
-          id: product.idProducto,
-          sku: product.sku,
-          name: product.nombre,
-          description:
-            product.descripcion ?? '',
-          price: product.precio,
-          stock: product.stock,
-          active: product.activo,
+        (product) => {
+          const theme:
+            ProductTheme =
+            isProductTheme(
+              product.temaVisual,
+            )
+              ? product.temaVisual
+              : 'amber';
 
-          categoryId:
-            product.categoria
-              .idCategoria,
+          return {
+            id:
+              product.idProducto,
 
-          category:
-            product.categoria.nombre,
+            sku:
+              product.sku,
 
-          image:
-            product.imagenUrl ??
-            undefined,
+            name:
+              product.nombre,
 
-          tone:
-            TONE_MAP[
-              product.temaVisual
-            ] ??
-            TONE_MAP.amber,
+            description:
+              product.descripcion ??
+              '',
 
-          soldOut:
-            product.stock <= 0,
-        }),
+            price:
+              product.precio,
+
+            stock:
+              product.stock,
+
+            active:
+              product.activo,
+
+            categoryId:
+              product.categoria
+                .idCategoria,
+
+            category:
+              product.categoria
+                .nombre,
+
+            image:
+              product.imagenUrl ??
+              undefined,
+
+            theme,
+
+            tone:
+              TONE_MAP[theme],
+
+            /*
+             * Compatibilidad temporal.
+             * El frontend nuevo usará
+             * stock <= 0 directamente.
+             */
+            soldOut:
+              product.stock <= 0,
+          };
+        },
       ),
     });
   } catch (error) {

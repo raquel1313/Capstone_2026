@@ -2,24 +2,23 @@ import { useState } from 'react';
 
 import { LogOut } from 'lucide-react';
 
-import type { AdminView, Dish, LunchDay, Order, OrderStatus } from '@/types';
-
-import type { Product } from '@/data';
+import type {
+  AdminView,
+  Dish,
+  LunchDay,
+  Order,
+  OrderStatus,
+} from '@/types';
 
 import type { VotePoll } from '@/hooks/useVotes';
 
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-
 import { AdminMobileNav } from '@/components/admin/AdminMobileNav';
 
 import { AdminOrdersView } from '@/views/admin/AdminOrdersView';
-
 import { AdminMenuView } from '@/views/admin/AdminMenuView';
-
 import { AdminProductsView } from '@/views/admin/AdminProductsView';
-
 import { AdminVotesView } from '@/views/admin/AdminVotesView';
-
 import { AdminUsersView } from '@/views/admin/AdminUsersView';
 
 const TITLES: Record<AdminView, string> = {
@@ -28,6 +27,76 @@ const TITLES: Record<AdminView, string> = {
   products: 'Productos de cafetería',
   votes: 'Votaciones',
   users: 'Usuarios y permisos',
+};
+
+type AdminLayoutProps = {
+  onLogout: () => void;
+
+  orders: Order[];
+
+  updateOrderStatus: (
+    id: string,
+    status: OrderStatus,
+  ) => void;
+
+  menu: LunchDay[];
+
+  addMenuDay: (
+    date: string,
+  ) => void;
+
+  updateMenuDayDate: (
+    dayId: string,
+    date: string,
+  ) => void;
+
+  removeMenuDay: (
+    dayId: string,
+  ) => void;
+
+  addMenuDish: (
+    dayId: string,
+    dish: Omit<Dish, 'id'>,
+  ) => void;
+
+  updateMenuDish: (
+    dayId: string,
+    dishId: string,
+    updates: Partial<Dish>,
+  ) => void;
+
+  removeMenuDish: (
+    dayId: string,
+    dishId: string,
+  ) => void;
+
+  toggleMenuDishSoldOut: (
+    dayId: string,
+    dishId: string,
+  ) => void;
+
+  resetMenu: () => void;
+
+  getReactionCounts: (
+    dayId: string,
+  ) => Record<string, number>;
+
+  poll: VotePoll | null;
+
+  isPollOpen: boolean;
+
+  createPoll: (
+    question: string,
+    options: string[],
+    start: string,
+    end: string,
+  ) => void;
+
+  closePoll: () => void;
+
+  reopenPoll: () => void;
+
+  deletePoll: () => void;
 };
 
 export function AdminLayout({
@@ -44,53 +113,15 @@ export function AdminLayout({
   toggleMenuDishSoldOut,
   resetMenu,
   getReactionCounts,
-  products,
-  addProduct,
-  updateProduct,
-  removeProduct,
-  resetProducts,
   poll,
   isPollOpen,
   createPoll,
   closePoll,
   reopenPoll,
   deletePoll,
-}: {
-  onLogout: () => void;
-  orders: Order[];
-  updateOrderStatus: (id: string, status: OrderStatus) => void;
-  menu: LunchDay[];
-  addMenuDay: (date: string) => void;
-  updateMenuDayDate: (dayId: string, date: string) => void;
-  removeMenuDay: (dayId: string) => void;
-  addMenuDish: (dayId: string, dish: Omit<Dish, 'id'>) => void;
-  updateMenuDish: (
-    dayId: string,
-    dishId: string,
-    updates: Partial<Dish>
-  ) => void;
-  removeMenuDish: (dayId: string, dishId: string) => void;
-  toggleMenuDishSoldOut: (dayId: string, dishId: string) => void;
-  resetMenu: () => void;
-  getReactionCounts: (dayId: string) => Record<string, number>;
-  products: Product[];
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  updateProduct: (id: number, updates: Partial<Product>) => void;
-  removeProduct: (id: number) => void;
-  resetProducts: () => void;
-  poll: VotePoll | null;
-  isPollOpen: boolean;
-  createPoll: (
-    question: string,
-    options: string[],
-    start: string,
-    end: string
-  ) => void;
-  closePoll: () => void;
-  reopenPoll: () => void;
-  deletePoll: () => void;
-}) {
-  const [adminView, setAdminView] = useState<AdminView>('orders');
+}: AdminLayoutProps) {
+  const [adminView, setAdminView] =
+    useState<AdminView>('orders');
 
   return (
     <div className="flex min-h-screen bg-[#f8edef]">
@@ -113,7 +144,9 @@ export function AdminLayout({
           </div>
 
           <button
+            type="button"
             onClick={onLogout}
+            aria-label="Cerrar sesión"
             className="grid h-10 w-10 place-items-center rounded-full bg-[#f8edef] text-black/45 transition hover:text-[#4e0611] lg:hidden"
           >
             <LogOut size={17} />
@@ -124,7 +157,9 @@ export function AdminLayout({
           {adminView === 'orders' && (
             <AdminOrdersView
               orders={orders}
-              updateStatus={updateOrderStatus}
+              updateStatus={
+                updateOrderStatus
+              }
             />
           )}
 
@@ -132,25 +167,29 @@ export function AdminLayout({
             <AdminMenuView
               menu={menu}
               addDay={addMenuDay}
-              updateDayDate={updateMenuDayDate}
+              updateDayDate={
+                updateMenuDayDate
+              }
               removeDay={removeMenuDay}
               addDish={addMenuDish}
-              updateDish={updateMenuDish}
-              removeDish={removeMenuDish}
-              toggleSoldOut={toggleMenuDishSoldOut}
+              updateDish={
+                updateMenuDish
+              }
+              removeDish={
+                removeMenuDish
+              }
+              toggleSoldOut={
+                toggleMenuDishSoldOut
+              }
               resetMenu={resetMenu}
-              getReactionCounts={getReactionCounts}
+              getReactionCounts={
+                getReactionCounts
+              }
             />
           )}
 
           {adminView === 'products' && (
-            <AdminProductsView
-              products={products}
-              addProduct={addProduct}
-              updateProduct={updateProduct}
-              removeProduct={removeProduct}
-              resetProducts={resetProducts}
-            />
+            <AdminProductsView />
           )}
 
           {adminView === 'votes' && (
@@ -164,7 +203,9 @@ export function AdminLayout({
             />
           )}
 
-          {adminView === 'users' && <AdminUsersView />}
+          {adminView === 'users' && (
+            <AdminUsersView />
+          )}
         </div>
       </div>
 

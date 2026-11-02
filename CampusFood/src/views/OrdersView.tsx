@@ -113,7 +113,7 @@ export function OrdersView({
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product) => {
-            const isSoldOut = product.soldOut ?? false;
+            const isSoldOut = product.stock <= 0;
 
             return (
               <div

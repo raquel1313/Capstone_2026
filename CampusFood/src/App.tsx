@@ -1,67 +1,84 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useState,
+} from 'react';
 
-import { LogOut, ShoppingCart } from 'lucide-react';
+import {
+  LogOut,
+  ShoppingCart,
+} from 'lucide-react';
 
 import { useCart } from '@/hooks/useCart';
-
 import type { CartItem } from '@/hooks/useCart';
 
 import { useOrders } from '@/hooks/useOrders';
-
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
-
 import { useMenu } from '@/hooks/useMenu';
-
 import { useProducts } from '@/hooks/useProducts';
-
 import { useVotes } from '@/hooks/useVotes';
-
 import { useReactions } from '@/hooks/useReactions';
-
 import { useAuth } from '@/hooks/useAuth';
 
 import type { View } from '@/types';
 
 import { Sidebar } from '@/components/Sidebar';
-
 import { BottomNav } from '@/components/BottomNav';
-
-import { HomeView } from '@/views/HomeView';
-
-import { MenuView } from '@/views/MenuView';
-
-import { OrdersView } from '@/views/OrdersView';
-
-import { ProfileView } from '@/views/ProfileView';
-
 import { CartDrawer } from '@/components/CartDrawer';
-
 import { NotificationsBell } from '@/components/NotificationsBell';
-
 import { SplashScreen } from '@/components/SplashScreen';
-
 import { Login } from '@/components/Login';
-
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
+import { HomeView } from '@/views/HomeView';
+import { MenuView } from '@/views/MenuView';
+import { OrdersView } from '@/views/OrdersView';
+import { ProfileView } from '@/views/ProfileView';
+
 function getTodayLabel() {
-  return new Date().toLocaleDateString('es-CL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  return new Date().toLocaleDateString(
+    'es-CL',
+    {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    },
+  );
 }
 
 function App() {
-  const [splashDone, setSplashDone] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
-  const [view, setView] = useState<View>('home');
-  const [showCart, setShowCart] = useState(false);
-  const [orderCategory, setOrderCategory] = useState<string | null>(null);
+  const [
+    splashDone,
+    setSplashDone,
+  ] = useState(false);
 
-  const {user, login, logout, loading} = useAuth();
+  const [
+    showSplash,
+    setShowSplash,
+  ] = useState(true);
+
+  const [view, setView] =
+    useState<View>('home');
+
+  const [
+    showCart,
+    setShowCart,
+  ] = useState(false);
+
+  const [
+    orderCategory,
+    setOrderCategory,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const {
+    user,
+    login,
+    logout,
+    loading,
+  } = useAuth();
 
   const {
     cart,
@@ -72,7 +89,11 @@ function App() {
     subtotal,
   } = useCart();
 
-  const { orders, addOrder, updateStatus } = useOrders();
+  const {
+    orders,
+    addOrder,
+    updateStatus,
+  } = useOrders();
 
   const {
     notifications,
@@ -82,7 +103,7 @@ function App() {
     dismissNotification,
   } = useOrderNotifications(
     orders,
-    user?.username ?? null
+    user?.username ?? null,
   );
 
   const {
@@ -97,13 +118,8 @@ function App() {
     resetMenu,
   } = useMenu();
 
-  const {
-    products,
-    addProduct,
-    updateProduct,
-    removeProduct,
-    resetProducts,
-  } = useProducts();
+  const { products } =
+    useProducts();
 
   const {
     poll,
@@ -114,30 +130,45 @@ function App() {
     reopenPoll,
     deletePoll,
     castVote,
-  } = useVotes(user?.username ?? null);
+  } = useVotes(
+    user?.username ?? null,
+  );
 
   const {
-    getCounts: getReactionCounts,
+    getCounts:
+      getReactionCounts,
     getUserReaction,
     react,
   } = useReactions();
 
   useEffect(() => {
-    const hideTimer = setTimeout(() => setSplashDone(true), 2500);
-
-    const unmountTimer = setTimeout(
-      () => setShowSplash(false),
-      3400
+    const hideTimer = setTimeout(
+      () =>
+        setSplashDone(true),
+      2500,
     );
+
+    const unmountTimer =
+      setTimeout(
+        () =>
+          setShowSplash(false),
+        3400,
+      );
 
     return () => {
       clearTimeout(hideTimer);
-      clearTimeout(unmountTimer);
+      clearTimeout(
+        unmountTimer,
+      );
     };
   }, []);
 
   if (showSplash) {
-    return <SplashScreen done={splashDone} />;
+    return (
+      <SplashScreen
+        done={splashDone}
+      />
+    );
   }
 
   if (loading) {
@@ -151,7 +182,9 @@ function App() {
   }
 
   if (!user) {
-    return <Login onLogin={login} />;
+    return (
+      <Login onLogin={login} />
+    );
   }
 
   if (user.role === 'admin') {
@@ -159,58 +192,106 @@ function App() {
       <AdminLayout
         onLogout={logout}
         orders={orders}
-        updateOrderStatus={updateStatus}
+        updateOrderStatus={
+          updateStatus
+        }
         menu={menu}
         addMenuDay={addDay}
-        updateMenuDayDate={updateDayDate}
-        removeMenuDay={removeDay}
+        updateMenuDayDate={
+          updateDayDate
+        }
+        removeMenuDay={
+          removeDay
+        }
         addMenuDish={addDish}
-        updateMenuDish={updateDish}
-        removeMenuDish={removeDish}
-        toggleMenuDishSoldOut={toggleSoldOut}
+        updateMenuDish={
+          updateDish
+        }
+        removeMenuDish={
+          removeDish
+        }
+        toggleMenuDishSoldOut={
+          toggleSoldOut
+        }
         resetMenu={resetMenu}
-        getReactionCounts={getReactionCounts}
-        products={products}
-        addProduct={addProduct}
-        updateProduct={updateProduct}
-        removeProduct={removeProduct}
-        resetProducts={resetProducts}
+        getReactionCounts={
+          getReactionCounts
+        }
         poll={poll}
-        isPollOpen={isPollOpen}
-        createPoll={createPoll}
-        closePoll={closePoll}
-        reopenPoll={reopenPoll}
-        deletePoll={deletePoll}
+        isPollOpen={
+          isPollOpen
+        }
+        createPoll={
+          createPoll
+        }
+        closePoll={
+          closePoll
+        }
+        reopenPoll={
+          reopenPoll
+        }
+        deletePoll={
+          deletePoll
+        }
       />
     );
   }
 
   const handleAddOrder = (
     cartItems: CartItem[],
-    subtotal: number
-  ) => addOrder(cartItems, subtotal, user.username);
+    orderSubtotal: number,
+  ) =>
+  addOrder(
+    cartItems,
+    orderSubtotal,
+    user.username,
+  );
 
-  // Productos que se agotaron (el carrito guarda copias, así que se consulta el catálogo actual)
-  const soldOutIds = products
-    .filter((product) => product.soldOut)
-    .map((product) => product.id);
+  /*
+   * El carrito conserva una copia
+   * del producto, por lo que la
+   * disponibilidad se determina
+   * usando el catálogo actualizado.
+   */
+  const soldOutIds =
+    products
+      .filter(
+        (product) =>
+          product.stock <= 0,
+      )
+      .map(
+        (product) =>
+          product.id,
+      );
 
-  // Cambia de vista; al entrar a Cafetería desde el menú se limpia el filtro
-  const goTo = (next: View) => {
-    if (next === 'orders') setOrderCategory(null);
+  const goTo = (
+    next: View,
+  ) => {
+    if (next === 'orders') {
+      setOrderCategory(null);
+    }
+
     setView(next);
   };
 
-  // Abre Cafetería, opcionalmente con una categoría ya filtrada
-  const openOrders = (category: string | null = null) => {
-    setOrderCategory(category);
+  const openOrders = (
+    category: string | null =
+      null,
+  ) => {
+    setOrderCategory(
+      category,
+    );
+
     setView('orders');
   };
 
   return (
     <main className="min-h-screen bg-[#f5f5f3] text-[#252525]">
       <div className="mx-auto flex min-h-screen max-w-[1440px]">
-        <Sidebar view={view} setView={goTo} />
+        <Sidebar
+          view={view}
+          setView={goTo}
+        />
 
         <section className="relative min-w-0 flex-1 pb-24 lg:pb-8">
           <header className="flex items-center justify-between px-5 py-5 sm:px-8 lg:px-12 lg:py-8">
@@ -221,35 +302,61 @@ function App() {
 
               <h1
                 className="mt-1 text-3xl tracking-tight sm:text-4xl"
-                style={{ fontFamily: "'Fraunces', serif" }}
+                style={{
+                  fontFamily:
+                    "'Fraunces', serif",
+                }}
               >
-                Hola, {user.name}{' '}
-                <span className="text-[#4e0611]">.</span>
+                Hola,{' '}
+                {user.name}{' '}
+                <span className="text-[#4e0611]">
+                  .
+                </span>
               </h1>
             </div>
 
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={logout}
                 title="Cerrar sesión"
+                aria-label="Cerrar sesión"
                 className="grid h-11 w-11 place-items-center rounded-full border border-black/5 bg-white text-black/40 transition hover:border-[#4e0611]/20 hover:text-[#4e0611]"
               >
                 <LogOut size={17} />
               </button>
 
               <NotificationsBell
-                notifications={notifications}
-                unreadCount={unreadCount}
-                markAsRead={markAsRead}
-                markAllAsRead={markAllAsRead}
-                dismissNotification={dismissNotification}
+                notifications={
+                  notifications
+                }
+                unreadCount={
+                  unreadCount
+                }
+                markAsRead={
+                  markAsRead
+                }
+                markAllAsRead={
+                  markAllAsRead
+                }
+                dismissNotification={
+                  dismissNotification
+                }
               />
 
               <button
-                onClick={() => setShowCart(true)}
+                type="button"
+                onClick={() =>
+                  setShowCart(
+                    true,
+                  )
+                }
+                aria-label="Abrir carrito"
                 className="relative grid h-11 w-11 place-items-center rounded-full bg-[#4e0611] text-white transition hover:bg-[#36040c]"
               >
-                <ShoppingCart size={18} />
+                <ShoppingCart
+                  size={18}
+                />
 
                 {cartCount > 0 && (
                   <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-[10px] font-bold text-[#4e0611]">
@@ -264,15 +371,29 @@ function App() {
             {view === 'home' && (
               <HomeView
                 setView={goTo}
-                openOrders={openOrders}
-                addToCart={addToCart}
+                openOrders={
+                  openOrders
+                }
+                addToCart={
+                  addToCart
+                }
                 lunchDays={menu}
-                products={products}
+                products={
+                  products
+                }
                 poll={poll}
-                isPollOpen={isPollOpen}
-                hasVoted={hasVoted}
-                castVote={castVote}
-                getUserReaction={getUserReaction}
+                isPollOpen={
+                  isPollOpen
+                }
+                hasVoted={
+                  hasVoted
+                }
+                castVote={
+                  castVote
+                }
+                getUserReaction={
+                  getUserReaction
+                }
                 react={react}
               />
             )}
@@ -280,25 +401,47 @@ function App() {
             {view === 'menu' && (
               <MenuView
                 lunchDays={menu}
-                getReactionCounts={getReactionCounts}
-                getUserReaction={getUserReaction}
+                getReactionCounts={
+                  getReactionCounts
+                }
+                getUserReaction={
+                  getUserReaction
+                }
                 react={react}
               />
             )}
 
             {view === 'orders' && (
               <OrdersView
-                products={products}
-                addToCart={addToCart}
-                category={orderCategory}
-                setCategory={setOrderCategory}
+                products={
+                  products
+                }
+                addToCart={
+                  addToCart
+                }
+                category={
+                  orderCategory
+                }
+                setCategory={
+                  setOrderCategory
+                }
               />
             )}
 
-            {view === 'profile' && <ProfileView user={user} orders={orders} logout={logout} />}
+            {view ===
+              'profile' && (
+              <ProfileView
+                user={user}
+                orders={orders}
+                logout={logout}
+              />
+            )}
           </div>
 
-          <BottomNav view={view} setView={goTo} />
+          <BottomNav
+            view={view}
+            setView={goTo}
+          />
         </section>
       </div>
 
@@ -306,15 +449,28 @@ function App() {
         <CartDrawer
           cart={cart}
           subtotal={subtotal}
-          close={() => setShowCart(false)}
-          updateQuantity={updateQuantity}
-          clearCart={clearCart}
+          close={() =>
+            setShowCart(false)
+          }
+          updateQuantity={
+            updateQuantity
+          }
+          clearCart={
+            clearCart
+          }
           goToOrders={() => {
-            setShowCart(false);
+            setShowCart(
+              false,
+            );
+
             goTo('orders');
           }}
-          addOrder={handleAddOrder}
-          soldOutIds={soldOutIds}
+          addOrder={
+            handleAddOrder
+          }
+          soldOutIds={
+            soldOutIds
+          }
         />
       )}
     </main>
