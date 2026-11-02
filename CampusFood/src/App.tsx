@@ -187,9 +187,13 @@ function App() {
     );
   }
 
-  if (user.role === 'admin') {
+  if (
+  user.role === 'admin' ||
+  user.role === 'worker'
+  ) {
     return (
       <AdminLayout
+        role={user.role}
         onLogout={logout}
         orders={orders}
         updateOrderStatus={

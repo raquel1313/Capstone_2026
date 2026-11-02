@@ -9,7 +9,10 @@ import {
 
 import { createClient } from '@/lib/supabase/client';
 
-export type Role = 'student' | 'admin';
+export type Role =
+  | 'student'
+  | 'worker'
+  | 'admin';
 
 export type User = {
   id: string;
@@ -35,13 +38,22 @@ type ProfileResponse = {
     role?: unknown;
   };
   error?: unknown;
+  code?: unknown;
 };
 
-function isRole(value: unknown): value is Role {
-  return value === 'student' || value === 'admin';
+function isRole(
+  value: unknown,
+): value is Role {
+  return (
+    value === 'student' ||
+    value === 'worker' ||
+    value === 'admin'
+  );
 }
 
-function parseProfile(data: ProfileResponse): User | null {
+function parseProfile(
+  data: ProfileResponse,
+): User | null {
   const profile = data.user;
 
   if (
@@ -63,6 +75,7 @@ function parseProfile(data: ProfileResponse): User | null {
 }
 
 export function useAuth() {
+ 
   const supabase = useMemo(
     () => createClient(),
     [],
@@ -74,6 +87,7 @@ export function useAuth() {
   const [loading, setLoading] =
     useState(true);
 
+
   const loadProfile = useCallback(
     async (): Promise<User | null> => {
       const response = await fetch(
@@ -81,23 +95,40 @@ export function useAuth() {
         {
           method: 'GET',
           cache: 'no-store',
+          credentials:
+            'same-origin',
         },
       );
 
+      /*
+       * 401 significa que no existe
+       * una sesión autenticada válida.
+       */
       if (response.status === 401) {
         setUser(null);
+
         return null;
       }
 
-      const data =
-        (await response.json()) as ProfileResponse;
+      let data: ProfileResponse;
+
+      try {
+        data =
+          (await response.json()) as ProfileResponse;
+      } catch {
+        throw new Error(
+          'La respuesta de /api/auth/me no contiene JSON válido.',
+        );
+      }
 
       if (!response.ok) {
         setUser(null);
+
         return null;
       }
 
-      const profile = parseProfile(data);
+      const profile =
+        parseProfile(data);
 
       if (!profile) {
         throw new Error(
@@ -137,80 +168,111 @@ export function useAuth() {
     void initializeAuth();
 
     const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (event) => {
-        if (!active) {
-          return;
-        }
-
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
-        if (
-          event === 'SIGNED_IN' ||
-          event === 'TOKEN_REFRESHED' ||
-          event === 'USER_UPDATED'
-        ) {
-          window.setTimeout(() => {
-            if (!active) {
-              return;
-            }
-
-            void loadProfile()
-              .catch((error) => {
-                console.error(
-                  'No se pudo actualizar el perfil autenticado:',
-                  error,
-                );
-                setUser(null);
-              })
-              .finally(() => {
-                if (active) {
-                  setLoading(false);
-                }
-              });
-          }, 0);
-        }
+      data: {
+        subscription,
       },
-    );
+    } =
+      supabase.auth.onAuthStateChange(
+        (event) => {
+          if (!active) {
+            return;
+          }
+
+          if (
+            event === 'SIGNED_OUT'
+          ) {
+            setUser(null);
+            setLoading(false);
+
+            return;
+          }
+
+          if (
+            event === 'SIGNED_IN' ||
+            event ===
+              'TOKEN_REFRESHED' ||
+            event ===
+              'USER_UPDATED'
+          ) {
+            window.setTimeout(
+              () => {
+                if (!active) {
+                  return;
+                }
+
+                void loadProfile()
+                  .catch(
+                    (error) => {
+                      console.error(
+                        'No se pudo actualizar el perfil autenticado:',
+                        error,
+                      );
+
+                      setUser(
+                        null,
+                      );
+                    },
+                  )
+                  .finally(
+                    () => {
+                      if (
+                        active
+                      ) {
+                        setLoading(
+                          false,
+                        );
+                      }
+                    },
+                  );
+              },
+              0,
+            );
+          }
+        },
+      );
 
     return () => {
       active = false;
+
       subscription.unsubscribe();
     };
-  }, [loadProfile, supabase]);
+  }, [
+    loadProfile,
+    supabase,
+  ]);
 
   async function login(
     username: string,
     password: string,
   ): Promise<LoginResult> {
     const email =
-      username.trim().toLowerCase();
+      username
+        .trim()
+        .toLowerCase();
 
     setLoading(true);
 
-    const { error } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-    if (error) {
-      setLoading(false);
-
-      return {
-        ok: false,
-        message:
-          'Correo o contraseña incorrectos.',
-      };
-    }
-
     try {
-      const profile = await loadProfile();
+      const {
+        error,
+      } =
+        await supabase.auth.signInWithPassword(
+          {
+            email,
+            password,
+          },
+        );
+
+      if (error) {
+        return {
+          ok: false,
+          message:
+            'Correo o contraseña incorrectos.',
+        };
+      }
+
+      const profile =
+        await loadProfile();
 
       if (!profile) {
         await supabase.auth.signOut();
@@ -225,21 +287,30 @@ export function useAuth() {
       return {
         ok: true,
       };
-    } catch {
+    } catch (error) {
+      console.error(
+        'Error durante el inicio de sesión:',
+        error,
+      );
+
       await supabase.auth.signOut();
+
+      setUser(null);
 
       return {
         ok: false,
         message:
-          'No fue posible cargar el perfil del usuario.',
+          'No fue posible iniciar sesión.',
       };
     } finally {
       setLoading(false);
     }
   }
 
-  async function logout() {
-    const { error } =
+  async function logout(): Promise<void> {
+    const {
+      error,
+    } =
       await supabase.auth.signOut();
 
     if (error) {
@@ -256,8 +327,8 @@ export function useAuth() {
 
   return {
     user,
+    loading,
     login,
     logout,
-    loading,
   };
 }

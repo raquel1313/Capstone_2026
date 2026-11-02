@@ -20,16 +20,48 @@ import { AdminMenuView } from '@/views/admin/AdminMenuView';
 import { AdminProductsView } from '@/views/admin/AdminProductsView';
 import { AdminVotesView } from '@/views/admin/AdminVotesView';
 import { AdminUsersView } from '@/views/admin/AdminUsersView';
+import { AdminStockView } from '@/views/admin/AdminStockView';
 
-const TITLES: Record<AdminView, string> = {
+type PanelRole =
+  | 'admin'
+  | 'worker';
+
+const TITLES: Record<
+  AdminView,
+  string
+> = {
   orders: 'Pedidos',
   menu: 'Menú semanal',
-  products: 'Productos de cafetería',
+  products:
+    'Productos de cafetería',
+  stock: 'Inventario',
   votes: 'Votaciones',
   users: 'Usuarios y permisos',
 };
 
+const VIEWS_BY_ROLE: Record<
+  PanelRole,
+  readonly AdminView[]
+> = {
+  admin: [
+    'orders',
+    'menu',
+    'products',
+    'stock',
+    'votes',
+    'users',
+  ],
+
+  worker: [
+    'orders',
+    'menu',
+    'stock',
+  ],
+};
+
 type AdminLayoutProps = {
+  role: PanelRole;
+
   onLogout: () => void;
 
   orders: Order[];
@@ -100,6 +132,7 @@ type AdminLayoutProps = {
 };
 
 export function AdminLayout({
+  role,
   onLogout,
   orders,
   updateOrderStatus,
@@ -123,10 +156,29 @@ export function AdminLayout({
   const [adminView, setAdminView] =
     useState<AdminView>('orders');
 
+  const allowedViews =
+    VIEWS_BY_ROLE[role];
+
+  /*
+   * Defensa adicional de UI.
+   *
+   * Aunque algún componente intentara
+   * seleccionar una vista no disponible
+   * para worker, el layout no la renderiza.
+   *
+   * La autorización real continúa
+   * estando en el backend.
+   */
+  const currentView =
+    allowedViews.includes(adminView)
+      ? adminView
+      : 'orders';
+
   return (
     <div className="flex min-h-screen bg-[#f8edef]">
       <AdminSidebar
-        adminView={adminView}
+        role={role}
+        adminView={currentView}
         setAdminView={setAdminView}
         onExit={onLogout}
       />
@@ -135,11 +187,13 @@ export function AdminLayout({
         <header className="flex items-center justify-between border-b border-black/5 bg-white px-5 py-5 sm:px-8 lg:px-10">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
-              Panel administrativo
+              {role === 'admin'
+                ? 'Panel administrativo'
+                : 'Panel operativo'}
             </p>
 
             <h1 className="mt-1 text-xl font-semibold tracking-tight">
-              {TITLES[adminView]}
+              {TITLES[currentView]}
             </h1>
           </div>
 
@@ -154,7 +208,8 @@ export function AdminLayout({
         </header>
 
         <div className="p-5 sm:p-8 lg:p-10">
-          {adminView === 'orders' && (
+          {currentView ===
+            'orders' && (
             <AdminOrdersView
               orders={orders}
               updateStatus={
@@ -163,15 +218,20 @@ export function AdminLayout({
             />
           )}
 
-          {adminView === 'menu' && (
+          {currentView ===
+            'menu' && (
             <AdminMenuView
               menu={menu}
               addDay={addMenuDay}
               updateDayDate={
                 updateMenuDayDate
               }
-              removeDay={removeMenuDay}
-              addDish={addMenuDish}
+              removeDay={
+                removeMenuDay
+              }
+              addDish={
+                addMenuDish
+              }
               updateDish={
                 updateMenuDish
               }
@@ -181,36 +241,59 @@ export function AdminLayout({
               toggleSoldOut={
                 toggleMenuDishSoldOut
               }
-              resetMenu={resetMenu}
+              resetMenu={
+                resetMenu
+              }
               getReactionCounts={
                 getReactionCounts
               }
             />
           )}
 
-          {adminView === 'products' && (
-            <AdminProductsView />
-          )}
+          {role === 'admin' &&
+            currentView ===
+              'products' && (
+              <AdminProductsView />
+            )}
 
-          {adminView === 'votes' && (
-            <AdminVotesView
-              poll={poll}
-              isOpen={isPollOpen}
-              createPoll={createPoll}
-              closePoll={closePoll}
-              reopenPoll={reopenPoll}
-              deletePoll={deletePoll}
-            />
-          )}
+            {currentView === 'stock' && (
+              <AdminStockView />
+            )}
 
-          {adminView === 'users' && (
-            <AdminUsersView />
-          )}
+          {role === 'admin' &&
+            currentView ===
+              'votes' && (
+              <AdminVotesView
+                poll={poll}
+                isOpen={
+                  isPollOpen
+                }
+                createPoll={
+                  createPoll
+                }
+                closePoll={
+                  closePoll
+                }
+                reopenPoll={
+                  reopenPoll
+                }
+                deletePoll={
+                  deletePoll
+                }
+              />
+            )}
+
+          {role === 'admin' &&
+            currentView ===
+              'users' && (
+              <AdminUsersView />
+            )}
         </div>
       </div>
 
       <AdminMobileNav
-        adminView={adminView}
+        role={role}
+        adminView={currentView}
         setAdminView={setAdminView}
       />
     </div>
