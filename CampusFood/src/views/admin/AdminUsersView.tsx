@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useId,
   useState,
   type ReactNode,
 } from 'react';
@@ -13,11 +14,9 @@ import {
   RefreshCw,
   Search,
   Shield,
-  Trash2,
   UserCheck,
   UserX,
   Users,
-  X,
 } from 'lucide-react';
 
 import {
@@ -27,9 +26,7 @@ import {
   type UserItem,
 } from '@/hooks/useUsers';
 
-type RoleFilter =
-  | 'todos'
-  | Role;
+type RoleFilter = 'todos' | Role;
 
 type FormValues = {
   nombre: string;
@@ -50,13 +47,35 @@ const ROLE_FILTERS: {
   },
   {
     id: 'student',
-    label: 'Estudiantes',
+    label: 'Estudiantes / Funcionarios',
+  },
+  {
+    id: 'worker',
+    label: 'Personal Casino',
   },
   {
     id: 'admin',
     label: 'Administradores',
   },
 ];
+
+const ROLE_LABELS: Record<Role, string> = {
+  student: 'Estudiante / Funcionario',
+  worker: 'Personal Casino',
+  admin: 'Administrador',
+};
+
+const ROLE_BADGE_CLASSES: Record<
+  Role,
+  string
+> = {
+  student:
+    'bg-emerald-100 text-emerald-700',
+  worker:
+    'bg-amber-100 text-amber-700',
+  admin:
+    'bg-[#4e0611]/10 text-[#4e0611]',
+};
 
 const EMPTY_FORM: FormValues = {
   nombre: '',
@@ -75,7 +94,7 @@ const LOCKED_MESSAGE =
 
 function getInitials(
   name: string,
-) {
+): string {
   return name
     .trim()
     .split(/\s+/)
@@ -89,10 +108,14 @@ function getInitials(
 
 function roleLabel(
   role: Role,
-) {
-  return role === 'admin'
-    ? 'Administrador'
-    : 'Estudiante';
+): string {
+  return ROLE_LABELS[role];
+}
+
+function roleBadgeClass(
+  role: Role,
+): string {
+  return ROLE_BADGE_CLASSES[role];
 }
 
 function getErrorMessage(
@@ -120,8 +143,10 @@ function UserForm({
   ) => Promise<void>;
   onCancel: () => void;
 }) {
+  const formId = useId();
+
   const [form, setForm] =
-    useState(initial);
+    useState<FormValues>(initial);
 
   const [error, setError] =
     useState<string | null>(null);
@@ -129,8 +154,26 @@ function UserForm({
   const [saving, setSaving] =
     useState(false);
 
+  const firstNameId =
+    `${formId}-first-name`;
+
+  const lastNameId =
+    `${formId}-last-name`;
+
+  const emailId =
+    `${formId}-email`;
+
+  const roleId =
+    `${formId}-role`;
+
+  const statusId =
+    `${formId}-status`;
+
+  const passwordId =
+    `${formId}-password`;
+
   const handleSave =
-    async () => {
+    async (): Promise<void> => {
       const values: FormValues = {
         ...form,
         nombre:
@@ -151,6 +194,7 @@ function UserForm({
         setError(
           'El nombre, apellido y correo son obligatorios.',
         );
+
         return;
       }
 
@@ -164,13 +208,14 @@ function UserForm({
         originalEmail;
 
       /*
-       * Los usuarios nuevos siempre deben
-       * usar correo institucional.
+       * Usuarios nuevos:
+       * correo institucional obligatorio.
        *
-       * En edición permitimos conservar un
-       * correo histórico no institucional,
-       * pero no reemplazarlo por otro correo
-       * no institucional.
+       * Usuarios existentes:
+       * se permite conservar un correo
+       * histórico no institucional, pero
+       * cualquier correo nuevo debe ser
+       * institucional.
        */
       if (
         (!isEditing ||
@@ -182,29 +227,36 @@ function UserForm({
         setError(
           'El correo debe ser institucional (@duocuc.cl).',
         );
+
         return;
       }
 
       if (
         !isEditing &&
-        (values.password.length < 15 ||
-          values.password.length > 128)
+        (
+          values.password.length < 15 ||
+          values.password.length > 128
+        )
       ) {
         setError(
           'La contraseña inicial debe tener entre 15 y 128 caracteres.',
         );
+
         return;
       }
 
       if (
         isEditing &&
         values.password &&
-        (values.password.length < 15 ||
-          values.password.length > 128)
+        (
+          values.password.length < 15 ||
+          values.password.length > 128
+        )
       ) {
         setError(
           'La nueva contraseña debe tener entre 15 y 128 caracteres.',
         );
+
         return;
       }
 
@@ -213,6 +265,7 @@ function UserForm({
 
       if (problem) {
         setError(problem);
+
         return;
       }
 
@@ -238,71 +291,65 @@ function UserForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label
-              htmlFor="user-first-name"
+              htmlFor={firstNameId}
               className="text-xs text-black/40"
             >
               Nombre
             </label>
 
             <input
-              id="user-first-name"
+              id={firstNameId}
               autoComplete="given-name"
               value={form.nombre}
               onChange={(event) =>
                 setForm({
                   ...form,
                   nombre:
-                    event.target
-                      .value,
+                    event.target.value,
                 })
               }
               disabled={saving}
               placeholder="Ej. Camila"
-              className={
-                INPUT_CLASS
-              }
+              className={INPUT_CLASS}
             />
           </div>
 
           <div>
             <label
-              htmlFor="user-last-name"
+              htmlFor={lastNameId}
               className="text-xs text-black/40"
             >
               Apellido
             </label>
 
             <input
-              id="user-last-name"
+              id={lastNameId}
               autoComplete="family-name"
               value={form.apellido}
               onChange={(event) =>
                 setForm({
                   ...form,
                   apellido:
-                    event.target
-                      .value,
+                    event.target.value,
                 })
               }
               disabled={saving}
               placeholder="Ej. Torres"
-              className={
-                INPUT_CLASS
-              }
+              className={INPUT_CLASS}
             />
           </div>
         </div>
 
         <div>
           <label
-            htmlFor="user-email"
+            htmlFor={emailId}
             className="text-xs text-black/40"
           >
             Correo institucional
           </label>
 
           <input
-            id="user-email"
+            id={emailId}
             type="email"
             autoComplete="email"
             value={form.email}
@@ -310,8 +357,7 @@ function UserForm({
               setForm({
                 ...form,
                 email:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             }
             disabled={saving}
@@ -323,14 +369,14 @@ function UserForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label
-              htmlFor="user-role"
+              htmlFor={roleId}
               className="text-xs text-black/40"
             >
               Rol
             </label>
 
             <select
-              id="user-role"
+              id={roleId}
               value={form.role}
               onChange={(event) =>
                 setForm({
@@ -344,26 +390,29 @@ function UserForm({
               className={INPUT_CLASS}
             >
               <option value="student">
-                Estudiante
+                Estudiante / Funcionario
+              </option>
+
+              <option value="worker">
+                Personal Casino
               </option>
 
               <option value="admin">
-                Personal Casino /
-                Admin
+                Administrador
               </option>
             </select>
           </div>
 
           <div>
             <label
-              htmlFor="user-status"
+              htmlFor={statusId}
               className="text-xs text-black/40"
             >
               Estado
             </label>
 
             <select
-              id="user-status"
+              id={statusId}
               value={form.status}
               onChange={(event) =>
                 setForm({
@@ -389,7 +438,7 @@ function UserForm({
 
         <div>
           <label
-            htmlFor="user-password"
+            htmlFor={passwordId}
             className="text-xs text-black/40"
           >
             {isEditing
@@ -398,7 +447,7 @@ function UserForm({
           </label>
 
           <input
-            id="user-password"
+            id={passwordId}
             type="password"
             autoComplete="new-password"
             value={form.password}
@@ -406,8 +455,7 @@ function UserForm({
               setForm({
                 ...form,
                 password:
-                  event.target
-                    .value,
+                  event.target.value,
               })
             }
             disabled={saving}
@@ -464,7 +512,6 @@ function UserCard({
   locked,
   validate,
   onSave,
-  onRemove,
   onToggleStatus,
 }: {
   user: UserItem;
@@ -475,17 +522,11 @@ function UserCard({
   onSave: (
     values: FormValues,
   ) => Promise<void>;
-  onRemove: () => Promise<void>;
   onToggleStatus:
     () => Promise<void>;
 }) {
   const [editing, setEditing] =
     useState(false);
-
-  const [
-    confirmingDelete,
-    setConfirmingDelete,
-  ] = useState(false);
 
   const [
     actionPending,
@@ -529,30 +570,8 @@ function UserCard({
     );
   }
 
-  const handleRemove =
-    async () => {
-      setActionPending(true);
-      setActionError(null);
-
-      try {
-        await onRemove();
-      } catch (removeError) {
-        setActionError(
-          getErrorMessage(
-            removeError,
-          ),
-        );
-
-        setConfirmingDelete(
-          false,
-        );
-      } finally {
-        setActionPending(false);
-      }
-    };
-
   const handleToggleStatus =
-    async () => {
+    async (): Promise<void> => {
       setActionPending(true);
       setActionError(null);
 
@@ -592,12 +611,9 @@ function UserCard({
 
         <div className="flex gap-1.5">
           <span
-            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
-              user.role ===
-              'admin'
-                ? 'bg-[#4e0611]/10 text-[#4e0611]'
-                : 'bg-emerald-100 text-emerald-700'
-            }`}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${roleBadgeClass(
+              user.role,
+            )}`}
           >
             {roleLabel(
               user.role,
@@ -642,81 +658,19 @@ function UserCard({
             <Pencil size={13} />
           </button>
 
-          {!confirmingDelete && (
-            <button
-              type="button"
-              onClick={() =>
-                setEditing(true)
-              }
-              disabled={
-                actionPending
-              }
-              aria-label={`Cambiar contraseña de ${user.name}`}
-              className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <KeyRound
-                size={13}
-              />
-            </button>
-          )}
-
-          {confirmingDelete ? (
-            <button
-              type="button"
-              onClick={() => {
-                void handleRemove();
-              }}
-              disabled={
-                actionPending
-              }
-              aria-label={`Confirmar eliminación de ${user.name}`}
-              className="grid h-8 w-8 place-items-center rounded-full bg-red-500 text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Check size={13} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() =>
-                setConfirmingDelete(
-                  true,
-                )
-              }
-              disabled={
-                locked ||
-                actionPending
-              }
-              title={
-                locked
-                  ? LOCKED_MESSAGE
-                  : undefined
-              }
-              aria-label={`Eliminar ${user.name}`}
-              className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#f8edef] disabled:hover:text-black/50"
-            >
-              <Trash2
-                size={13}
-              />
-            </button>
-          )}
-
-          {confirmingDelete && (
-            <button
-              type="button"
-              onClick={() =>
-                setConfirmingDelete(
-                  false,
-                )
-              }
-              disabled={
-                actionPending
-              }
-              aria-label="Cancelar eliminación"
-              className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <X size={13} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() =>
+              setEditing(true)
+            }
+            disabled={
+              actionPending
+            }
+            aria-label={`Cambiar contraseña de ${user.name}`}
+            className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <KeyRound size={13} />
+          </button>
         </div>
       </div>
 
@@ -754,6 +708,12 @@ function UserCard({
             ? 'Activar usuario'
             : 'Desactivar usuario'}
       </button>
+
+      {locked && (
+        <p className="mt-2 text-center text-[11px] text-black/40">
+          {LOCKED_MESSAGE}
+        </p>
+      )}
 
       {actionError && (
         <p
@@ -801,7 +761,7 @@ export function AdminUsersView() {
     refreshUsers,
     addUser,
     updateUser,
-    removeUser,
+    setUserStatus,
   } = useUsers();
 
   const [adding, setAdding] =
@@ -828,15 +788,16 @@ export function AdminUsersView() {
 
   const isLastAdmin = (
     user: UserItem,
-  ) =>
+  ): boolean =>
     user.role === 'admin' &&
     user.status ===
       'Activo' &&
     activeAdmins.length === 1;
 
   /*
-   * Estas validaciones mejoran UX.
-   * La API sigue siendo la autoridad.
+   * Estas validaciones mejoran la UX.
+   * La API continúa siendo la
+   * autoridad final.
    */
   const validate = (
     values: FormValues,
@@ -859,15 +820,25 @@ export function AdminUsersView() {
       return 'Ya existe un usuario con ese correo.';
     }
 
+    /*
+     * El último administrador activo
+     * no puede:
+     *
+     * - pasar a worker;
+     * - pasar a student;
+     * - quedar inactivo.
+     */
     if (
       current &&
       isLastAdmin(
         current,
       ) &&
-      (values.role !==
-        'admin' ||
+      (
+        values.role !==
+          'admin' ||
         values.status !==
-          'Activo')
+          'Activo'
+      )
     ) {
       return `${LOCKED_MESSAGE}.`;
     }
@@ -903,9 +874,27 @@ export function AdminUsersView() {
       );
     });
 
+  const studentCount =
+    users.filter(
+      (user) =>
+        user.role === 'student',
+    ).length;
+
+  const workerCount =
+    users.filter(
+      (user) =>
+        user.role === 'worker',
+    ).length;
+
+  const adminCount =
+    users.filter(
+      (user) =>
+        user.role === 'admin',
+    ).length;
+
   return (
     <div>
-      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Total usuarios registrados"
           value={users.length}
@@ -915,14 +904,8 @@ export function AdminUsersView() {
         />
 
         <MetricCard
-          label="Estudiantes"
-          value={
-            users.filter(
-              (user) =>
-                user.role ===
-                'student',
-            ).length
-          }
+          label="Estudiantes / Funcionarios"
+          value={studentCount}
           icon={
             <UserCheck
               size={16}
@@ -931,14 +914,16 @@ export function AdminUsersView() {
         />
 
         <MetricCard
-          label="Administradores"
-          value={
-            users.filter(
-              (user) =>
-                user.role ===
-                'admin',
-            ).length
+          label="Personal Casino"
+          value={workerCount}
+          icon={
+            <Users size={16} />
           }
+        />
+
+        <MetricCard
+          label="Administradores"
+          value={adminCount}
           icon={
             <Shield size={16} />
           }
@@ -972,9 +957,7 @@ export function AdminUsersView() {
             (filter) => (
               <button
                 type="button"
-                key={
-                  filter.id
-                }
+                key={filter.id}
                 onClick={() =>
                   setRoleFilter(
                     filter.id,
@@ -1023,6 +1006,7 @@ export function AdminUsersView() {
             className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={13} />
+
             Crear usuario
           </button>
         </div>
@@ -1157,21 +1141,13 @@ export function AdminUsersView() {
                       updates,
                     );
                   }}
-                  onRemove={async () => {
-                    await removeUser(
-                      user.id,
-                    );
-                  }}
                   onToggleStatus={async () => {
-                    await updateUser(
+                    await setUserStatus(
                       user.id,
-                      {
-                        status:
-                          user.status ===
-                          'Activo'
-                            ? 'Inactivo'
-                            : 'Activo',
-                      },
+                      user.status ===
+                        'Activo'
+                        ? 'Inactivo'
+                        : 'Activo',
                     );
                   }}
                 />
@@ -1189,10 +1165,9 @@ export function AdminUsersView() {
                 />
 
                 <p className="mt-4 text-sm text-black/45">
-                  No se
-                  encontraron
-                  usuarios con
-                  esos filtros.
+                  No se encontraron
+                  usuarios con esos
+                  filtros.
                 </p>
               </div>
             )}

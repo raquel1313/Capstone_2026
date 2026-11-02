@@ -8,6 +8,7 @@ import {
 
 export type Role =
   | 'student'
+  | 'worker'
   | 'admin';
 
 export type UserStatus =
@@ -57,6 +58,7 @@ function isRole(
 ): value is Role {
   return (
     value === 'student' ||
+    value === 'worker' ||
     value === 'admin'
   );
 }
@@ -232,24 +234,12 @@ export function useUsers() {
   const [users, setUsers] =
     useState<UserItem[]>([]);
 
-  /*
-   * Empieza en true para evitar llamar
-   * setLoading(true) de forma síncrona
-   * desde el useEffect inicial.
-   */
   const [loading, setLoading] =
     useState(true);
 
   const [error, setError] =
     useState<string | null>(null);
 
-  /*
-   * Carga inicial.
-   *
-   * La primera actualización de estado
-   * ocurre después del await, evitando
-   * react-hooks/set-state-in-effect.
-   */
   useEffect(() => {
     const controller =
       new AbortController();
@@ -405,8 +395,7 @@ export function useUsers() {
             (current) =>
               current.map(
                 (candidate) =>
-                  candidate.id ===
-                  id
+                  candidate.id === id
                     ? user
                     : candidate,
               ),
@@ -429,58 +418,20 @@ export function useUsers() {
       [],
     );
 
-  const removeUser =
+  const setUserStatus =
     useCallback(
       async (
         id: string,
-      ): Promise<void> => {
-        setError(null);
-
-        try {
-          const response =
-            await fetch(
-              `/api/admin/users/${id}`,
-              {
-                method:
-                  'DELETE',
-              },
-            );
-
-          if (!response.ok) {
-            const data =
-              await readJson(
-                response,
-              );
-
-            throw new Error(
-              getErrorMessage(
-                data,
-                'No fue posible eliminar el usuario.',
-              ),
-            );
-          }
-
-          setUsers(
-            (current) =>
-              current.filter(
-                (user) =>
-                  user.id !== id,
-              ),
-          );
-        } catch (requestError) {
-          const message =
-            requestError instanceof Error
-              ? requestError.message
-              : 'No fue posible eliminar el usuario.';
-
-          setError(message);
-
-          throw new Error(
-            message,
-          );
-        }
+        status: UserStatus,
+      ): Promise<UserItem> => {
+        return updateUser(
+          id,
+          {
+            status,
+          },
+        );
       },
-      [],
+      [updateUser],
     );
 
   return {
@@ -490,6 +441,6 @@ export function useUsers() {
     refreshUsers,
     addUser,
     updateUser,
-    removeUser,
+    setUserStatus,
   };
 }

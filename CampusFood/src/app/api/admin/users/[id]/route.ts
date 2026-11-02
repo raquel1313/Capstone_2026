@@ -4,7 +4,10 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 
-type Role = 'student' | 'admin';
+type Role =
+  | 'student'
+  | 'worker'
+  | 'admin';
 type Status = 'Activo' | 'Inactivo';
 
 type UpdateUserBody = {
@@ -22,8 +25,14 @@ type RouteContext = {
   }>;
 };
 
-function isRole(value: unknown): value is Role {
-  return value === 'student' || value === 'admin';
+function isRole(
+  value: unknown,
+): value is Role {
+  return (
+    value === 'student' ||
+    value === 'worker' ||
+    value === 'admin'
+  );
 }
 
 function isStatus(value: unknown): value is Status {
@@ -49,7 +58,8 @@ function getRole(
 ): Role | null {
   if (
     roles.some(
-      ({ rol }) => rol.nombre === 'admin',
+      ({ rol }) =>
+        rol.nombre === 'admin',
     )
   ) {
     return 'admin';
@@ -57,7 +67,17 @@ function getRole(
 
   if (
     roles.some(
-      ({ rol }) => rol.nombre === 'student',
+      ({ rol }) =>
+        rol.nombre === 'worker',
+    )
+  ) {
+    return 'worker';
+  }
+
+  if (
+    roles.some(
+      ({ rol }) =>
+        rol.nombre === 'student',
     )
   ) {
     return 'student';
@@ -585,86 +605,5 @@ export async function PATCH(
         ? 'Activo'
         : 'Inactivo',
     },
-  });
-}
-
-export async function DELETE(
-  _request: Request,
-  { params }: RouteContext,
-) {
-  const authorization = await requireAdmin();
-
-  if (!authorization.ok) {
-    return authorization.response;
-  }
-
-  const { id } = await params;
-
-  if (!isUuid(id)) {
-    return Response.json(
-      {
-        error:
-          'El identificador del usuario no es válido.',
-      },
-      { status: 400 },
-    );
-  }
-
-  const target = await getTargetUser(id);
-
-  if (!target) {
-    return Response.json(
-      { error: 'Usuario no encontrado.' },
-      { status: 404 },
-    );
-  }
-
-  const currentRole =
-    getRole(target.roles);
-
-  if (
-    currentRole === 'admin' &&
-    target.activo
-  ) {
-    const activeAdmins =
-      await countActiveAdmins();
-
-    if (activeAdmins <= 1) {
-      return Response.json(
-        {
-          error:
-            'No se puede eliminar al último administrador activo.',
-        },
-        { status: 409 },
-      );
-    }
-  }
-
-  const { error } =
-    await supabaseAdmin.auth.admin.deleteUser(
-      id,
-    );
-
-  if (error) {
-    console.error(
-      'Supabase deleteUser failed:',
-      error,
-    );
-
-    return Response.json(
-      {
-        error:
-          'No fue posible eliminar el usuario.',
-      },
-      { status: 500 },
-    );
-  }
-
-  /*
-   * on_auth_user_deleted elimina public.usuarios.
-   * usuario_rol desaparece por ON DELETE CASCADE.
-   */
-  return new Response(null, {
-    status: 204,
   });
 }

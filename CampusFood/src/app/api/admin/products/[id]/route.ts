@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requirePermission } from '@/lib/auth/require-permission';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -32,7 +32,6 @@ type UpdateProductBody = {
   nombre?: unknown;
   descripcion?: unknown;
   precio?: unknown;
-  stock?: unknown;
   idCategoria?: unknown;
   activo?: unknown;
   imagenUrl?: unknown;
@@ -86,16 +85,6 @@ function isPositiveInteger(
     typeof value === 'number' &&
     Number.isSafeInteger(value) &&
     value > 0
-  );
-}
-
-function isNonNegativeInteger(
-  value: unknown,
-): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isSafeInteger(value) &&
-    value >= 0
   );
 }
 
@@ -199,7 +188,10 @@ export async function PATCH(
   request: Request,
   context: RouteContext,
 ) {
-  const auth = await requireAdmin();
+  const auth =
+    await requirePermission(
+      'MANAGE_PRODUCTS',
+    );
 
   if (!auth.ok) {
     return auth.response;
@@ -254,16 +246,15 @@ export async function PATCH(
   }
 
   const data: {
-    sku?: string;
-    nombre?: string;
-    descripcion?: string | null;
-    precio?: number;
-    stock?: number;
-    idCategoria?: number;
-    activo?: boolean;
-    imagenUrl?: string | null;
-    temaVisual?: string;
-  } = {};
+  sku?: string;
+  nombre?: string;
+  descripcion?: string | null;
+  precio?: number;
+  idCategoria?: number;
+  activo?: boolean;
+  imagenUrl?: string | null;
+  temaVisual?: string;
+} = {};
 
   if (body.sku !== undefined) {
     if (
@@ -403,25 +394,6 @@ export async function PATCH(
     data.precio = body.precio;
   }
 
-  if (body.stock !== undefined) {
-    if (
-      !isNonNegativeInteger(
-        body.stock,
-      )
-    ) {
-      return Response.json(
-        {
-          error:
-            'El stock debe ser un entero mayor o igual a 0.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    data.stock = body.stock;
-  }
 
   if (
     body.idCategoria !== undefined
@@ -737,7 +709,10 @@ export async function DELETE(
   _request: Request,
   context: RouteContext,
 ) {
-  const auth = await requireAdmin();
+  const auth =
+    await requirePermission(
+      'MANAGE_PRODUCTS',
+    );
 
   if (!auth.ok) {
     return auth.response;

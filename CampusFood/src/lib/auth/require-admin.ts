@@ -29,43 +29,59 @@ export async function requireAdmin(): Promise<RequireAdminResult> {
     };
   }
 
-  const usuario = await prisma.usuario.findUnique({
-    where: {
-      idUsuario: userId,
-    },
-    select: {
-      activo: true,
-      roles: {
-        select: {
-          rol: {
-            select: {
-              nombre: true,
+  const usuario =
+    await prisma.usuario.findUnique({
+      where: {
+        idUsuario: userId,
+      },
+      select: {
+        activo: true,
+        roles: {
+          select: {
+            rol: {
+              select: {
+                nombre: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!usuario || !usuario.activo) {
+  if (!usuario) {
     return {
       ok: false,
       response: Response.json(
-        { error: 'Acceso denegado.' },
+        { error: 'Usuario no registrado.' },
         { status: 403 },
       ),
     };
   }
 
-  const isAdmin = usuario.roles.some(
-    ({ rol }) => rol.nombre === 'admin',
-  );
+  if (!usuario.activo) {
+    return {
+      ok: false,
+      response: Response.json(
+        { error: 'Usuario inactivo.' },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const isAdmin =
+    usuario.roles.some(
+      ({ rol }) =>
+        rol.nombre === 'admin',
+    );
 
   if (!isAdmin) {
     return {
       ok: false,
       response: Response.json(
-        { error: 'Se requiere rol administrador.' },
+        {
+          error:
+            'Se requiere rol administrador.',
+        },
         { status: 403 },
       ),
     };

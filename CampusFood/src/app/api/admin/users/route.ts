@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 
-type Role = 'student' | 'admin';
+type Role = 'student' | 'worker' | 'admin';
 type Status = 'Activo' | 'Inactivo';
 
 type CreateUserBody = {
@@ -19,7 +19,7 @@ type CreateUserBody = {
 };
 
 function isRole(value: unknown): value is Role {
-  return value === 'student' || value === 'admin';
+  return value === 'student' || value === 'worker' || value === 'admin';
 }
 
 function isStatus(value: unknown): value is Status {
@@ -120,6 +120,8 @@ export async function GET() {
         role = 'admin';
       } else if (roles.includes('student')) {
         role = 'student';
+      } else if (roles.includes('worker')) {
+        role = 'worker';
       }
 
       const authUser = authById.get(
