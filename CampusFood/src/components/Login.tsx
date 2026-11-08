@@ -1,27 +1,61 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Image from 'next/image';
-import { Eye, EyeOff, Lock, User as UserIcon } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 
 import logo from '@/assets/images/logo.png';
 
+type LoginResult =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 interface LoginProps {
-  onLogin: (username: string, password: string) => boolean;
-  error: string | null;
+  onLogin: (
+    email: string,
+    password: string,
+  ) => Promise<LoginResult>;
 }
 
-export function Login({ onLogin, error }: LoginProps) {
-  const [username, setUsername] = useState('');
+export function Login({ onLogin }: LoginProps) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
 
-    const success = onLogin(username, password);
+    if (submitting) {
+      return;
+    }
 
-    if (!success) {
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const result = await onLogin(email, password);
+
+      if (!result.ok) {
+        setError(result.message);
+        setPassword('');
+      }
+    } catch (submitError) {
+      console.error('Error al iniciar sesión:', submitError);
+
+      setError(
+        'No fue posible iniciar sesión. Inténtalo nuevamente.',
+      );
       setPassword('');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -33,11 +67,14 @@ export function Login({ onLogin, error }: LoginProps) {
             src={logo}
             alt="Casino CampusFood"
             className="h-20 w-auto"
+            priority
           />
 
           <h1
             className="mt-4 text-6xl leading-none text-white"
-            style={{ fontFamily: "'Caveat', cursive" }}
+            style={{
+              fontFamily: "'Caveat', cursive",
+            }}
           >
             ¡Hola de nuevo!
           </h1>
@@ -47,30 +84,38 @@ export function Login({ onLogin, error }: LoginProps) {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-9 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="mt-9 space-y-4"
+        >
           <div>
             <label
-              htmlFor="login-username"
+              htmlFor="login-email"
               className="text-xs font-medium uppercase tracking-wider text-white/80"
             >
-              Usuario
+              Correo
             </label>
 
             <div className="relative mt-2">
-              <UserIcon
+              <Mail
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60"
                 size={16}
+                aria-hidden="true"
               />
 
               <input
-                id="login-username"
-                type="text"
-                autoComplete="username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                id="login-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) =>
+                  setEmail(event.target.value)
+                }
                 autoFocus
-                className="w-full rounded-2xl border border-white/50 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/60 focus:border-white"
-                placeholder="Tu usuario"
+                required
+                disabled={submitting}
+                className="w-full rounded-2xl border border-white/50 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/60 focus:border-white disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="tu@correo.cl"
               />
             </div>
           </div>
@@ -87,6 +132,7 @@ export function Login({ onLogin, error }: LoginProps) {
               <Lock
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60"
                 size={16}
+                aria-hidden="true"
               />
 
               <input
@@ -94,8 +140,12 @@ export function Login({ onLogin, error }: LoginProps) {
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-2xl border border-white/50 bg-white/5 py-3 pl-11 pr-11 text-sm text-white outline-none transition placeholder:text-white/60 focus:border-white"
+                onChange={(event) =>
+                  setPassword(event.target.value)
+                }
+                required
+                disabled={submitting}
+                className="w-full rounded-2xl border border-white/50 bg-white/5 py-3 pl-11 pr-11 text-sm text-white outline-none transition placeholder:text-white/60 focus:border-white disabled:cursor-not-allowed disabled:opacity-60"
                 placeholder="••••••••"
               />
 
@@ -122,9 +172,12 @@ export function Login({ onLogin, error }: LoginProps) {
 
           <button
             type="submit"
-            className="w-full rounded-full bg-white py-3.5 text-sm font-semibold text-[#252525] transition hover:bg-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            disabled={submitting}
+            className="w-full rounded-full bg-white py-3.5 text-sm font-semibold text-[#252525] transition hover:bg-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Ingresar
+            {submitting
+              ? 'Ingresando...'
+              : 'Ingresar'}
           </button>
         </form>
       </div>

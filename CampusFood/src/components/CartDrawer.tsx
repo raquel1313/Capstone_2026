@@ -21,7 +21,7 @@ interface CartDrawerProps {
   updateQuantity: (id: number, amount: number) => void;
   clearCart: () => void;
   goToOrders: () => void;
-  addOrder: (cart: CartItem[], subtotal: number) => string;
+  addOrder: (cart: CartItem[]) => Promise<string>;
   soldOutIds: number[];
   // Unidades disponibles por producto (solo los que llevan control de stock)
   limits: Record<number, number>;
@@ -43,6 +43,8 @@ export function CartDrawer({
 }: CartDrawerProps) {
   const [ordered, setOrdered] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   const soldOutIdsSet = new Set(soldOutIds);
 
@@ -61,21 +63,36 @@ export function CartDrawer({
   const isBlocked = blockedUntil !== null;
   const cannotOrder = hasSoldOutItem || hasOverLimit || isBlocked;
 
-  const handleOrder = () => {
-    if (cart.length === 0 || cannotOrder) {
+  const handleOrder = async () => {
+    if (cart.length === 0 || cannotOrder || submitting) {
       return;
     }
 
-    const newOrderNumber = addOrder(cart, subtotal);
+    setSubmitting(true);
+    setOrderError(null);
 
-    setOrderNumber(newOrderNumber);
-    setOrdered(true);
-    clearCart();
+    try {
+      // El servidor valida stock y precios y genera el código de retiro.
+      const newOrderNumber = await addOrder(cart);
+
+      setOrderNumber(newOrderNumber);
+      setOrdered(true);
+      clearCart();
+    } catch (error) {
+      setOrderError(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible crear el pedido. Inténtalo nuevamente.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = () => {
     setOrdered(false);
     setOrderNumber(null);
+    setOrderError(null);
     close();
   };
 
@@ -304,16 +321,25 @@ export function CartDrawer({
 
               <button
                 type="button"
-                onClick={handleOrder}
-                disabled={cannotOrder}
+                onClick={() => void handleOrder()}
+                disabled={cannotOrder || submitting}
                 className="mt-5 w-full rounded-full bg-[#4e0611] py-4 text-sm font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#4e0611]"
               >
-                Confirmar pedido
+                {submitting ? 'Creando pedido...' : 'Confirmar pedido'}
                 <ArrowRight
                   className="ml-2 inline"
                   size={16}
                 />
               </button>
+
+              {orderError && (
+                <p
+                  role="alert"
+                  className="mt-3 text-center text-xs font-medium text-red-600"
+                >
+                  {orderError}
+                </p>
+              )}
 
               <p className="mt-3 text-center text-[11px] text-black/35">
                 Pago al retirar en el mesón

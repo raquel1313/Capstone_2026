@@ -1,166 +1,178 @@
-import { useEffect, useState } from 'react';
-import type { CancelledBy, Order, OrderStatus } from '@/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import type { CartItem } from '@/hooks/useCart';
+import type { CancelledBy, Order, OrderStatus } from '@/types';
 
-const STORAGE_KEY = 'campusfood_orders';
+const POLL_INTERVAL_MS = 10000;
 
-function loadOrders(): Order[] {
+type ApiResult = { order?: Order; orders?: Order[]; error?: string };
+
+async function request(
+  url: string,
+  init?: RequestInit
+): Promise<ApiResult> {
+  const response = await fetch(url, {
+    cache: 'no-store',
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  });
+
+  let data: ApiResult = {};
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    data = (await response.json()) as ApiResult;
   } catch {
-    return [];
+    data = {};
   }
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No fue posible completar la operación.');
+  }
+
+  return data;
 }
 
-function generateOrderNumber(existingCount: number) {
-  return `C-${String(existingCount + 1).padStart(3, '0')}`;
-}
-
-function fallbackReason(by: CancelledBy) {
-  return by === 'cliente' ? 'Solicitud del cliente' : 'Cancelado por el casino';
-}
-
-export function useOrders() {
-  const [orders, setOrders] = useState<Order[]>(() => loadOrders());
+/**
+ * Pedidos guardados en la base de datos.
+ * Los estudiantes reciben solo los suyos; el personal recibe todos.
+ */
+export function useOrders(enabled: boolean) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  }, [orders]);
+    mounted.current = true;
 
-  const addOrder = (cart: CartItem[], subtotal: number, username: string) => {
-    const orderNumber = generateOrderNumber(orders.length);
-    const newOrder: Order = {
-      id: orderNumber,
-      username,
-      items: cart.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-      })),
-      subtotal,
-      status: 'pendiente',
-      createdAt: new Date().toISOString(),
+    return () => {
+      mounted.current = false;
     };
-    setOrders((current) => [...current, newOrder]);
-    return orderNumber;
+  }, []);
+
+  const refreshOrders = useCallback(async () => {
+    try {
+      const data = await request('/api/orders');
+
+      if (mounted.current && data.orders) {
+        setOrders(data.orders);
+      }
+    } catch (requestError) {
+      console.error('No se pudieron cargar los pedidos:', requestError);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    // Carga inicial diferida y refresco periódico (el casino ve pedidos nuevos).
+    const first = setTimeout(() => void refreshOrders(), 0);
+    const interval = setInterval(() => void refreshOrders(), POLL_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
+  }, [enabled, refreshOrders]);
+
+  const replaceOrder = (order: Order) => {
+    setOrders((current) => {
+      const exists = current.some((candidate) => candidate.id === order.id);
+
+      return exists
+        ? current.map((candidate) =>
+            candidate.id === order.id ? order : candidate
+          )
+        : [order, ...current];
+    });
   };
 
-  // Solo permite pasar entre pendiente y listo. Cancelar y retirar tienen sus propias funciones.
-  const updateStatus = (id: string, status: OrderStatus) => {
+  // Ejecuta una acción sobre un pedido y deja el mensaje de error visible si falla.
+  const runAction = async (code: string, body: Record<string, unknown>) => {
+    try {
+      const data = await request(`/api/orders/${encodeURIComponent(code)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+
+      if (data.order) {
+        replaceOrder(data.order);
+      }
+
+      setError(null);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'No fue posible completar la operación.'
+      );
+
+      // El estado pudo cambiar en otro equipo: se vuelve a cargar.
+      await refreshOrders();
+    }
+  };
+
+  // Crea el pedido. El servidor valida stock y precios y genera el código de retiro.
+  const addOrder = async (cart: CartItem[]): Promise<string> => {
+    const data = await request('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: cart.map((item) => ({
+          productId: item.id,
+          quantity: item.quantity,
+        })),
+      }),
+    });
+
+    if (!data.order) {
+      throw new Error('La respuesta del servidor no incluye el pedido.');
+    }
+
+    replaceOrder(data.order);
+
+    return data.order.id;
+  };
+
+  // Solo permite pasar entre pendiente y listo. Cancelar y retirar tienen su propia función.
+  const updateStatus = async (id: string, status: OrderStatus) => {
     if (status !== 'pendiente' && status !== 'listo') return;
 
-    setOrders((current) =>
-      current.map((order) =>
-        order.id === id &&
-        (order.status === 'pendiente' || order.status === 'listo')
-          ? { ...order, status }
-          : order
-      )
-    );
+    await runAction(id, { action: 'status', status });
   };
 
-  // Solo se puede cancelar un pedido que sigue pendiente
-  const cancelOrder = (id: string, by: CancelledBy, reason: string) => {
-    setOrders((current) =>
-      current.map((order): Order =>
-        order.id === id && order.status === 'pendiente'
-          ? {
-              ...order,
-              status: 'cancelado',
-              cancelledAt: new Date().toISOString(),
-              cancelledBy: by,
-              cancelReason: reason.trim() || fallbackReason(by),
-            }
-          : order
-      )
-    );
+  // `by` lo decide el servidor según quién hace la solicitud.
+  const cancelOrder = async (id: string, _by: CancelledBy, reason: string) => {
+    await runAction(id, { action: 'cancel', reason });
   };
 
-  // Entrega del pedido. Es definitivo: ya no se puede revertir ni cancelar.
-  const retireOrder = (id: string, by: string) => {
-    setOrders((current) =>
-      current.map((order): Order =>
-        order.id === id && order.status === 'listo'
-          ? {
-              ...order,
-              status: 'retirado',
-              retiredAt: new Date().toISOString(),
-              retiredBy: by,
-            }
-          : order
-      )
-    );
+  // Quién entrega queda registrado por el servidor (usuario de la sesión).
+  const retireOrder = async (id: string) => {
+    await runAction(id, { action: 'retire' });
   };
 
-  // Quita una cantidad de un producto de un pedido pendiente y recalcula el total.
-  // Si no queda ningún producto, el pedido se cancela.
-  const removeOrderItem = (
+  const removeOrderItem = async (
     orderId: string,
     itemId: number,
     quantity: number,
-    by: CancelledBy,
+    _by: CancelledBy,
     reason: string
   ) => {
-    setOrders((current) =>
-      current.map((order): Order => {
-        if (order.id !== orderId || order.status !== 'pendiente') return order;
-
-        const target = order.items.find((item) => item.id === itemId);
-        if (!target) return order;
-
-        const now = new Date().toISOString();
-        const removed = Math.min(Math.max(1, quantity), target.quantity);
-        const finalReason = reason.trim() || fallbackReason(by);
-
-        const adjustments = [
-          ...(order.adjustments ?? []),
-          {
-            at: now,
-            by,
-            itemId,
-            name: target.name,
-            quantity: removed,
-            reason: finalReason,
-          },
-        ];
-
-        const items = order.items
-          .map((item) =>
-            item.id === itemId
-              ? { ...item, quantity: item.quantity - removed }
-              : item
-          )
-          .filter((item) => item.quantity > 0);
-
-        // Se quitó todo: queda como cancelación completa y conserva el detalle original
-        if (items.length === 0) {
-          return {
-            ...order,
-            adjustments,
-            status: 'cancelado',
-            cancelledAt: now,
-            cancelledBy: by,
-            cancelReason: finalReason,
-          };
-        }
-
-        return {
-          ...order,
-          items,
-          adjustments,
-          subtotal: items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-          ),
-        };
-      })
-    );
+    await runAction(orderId, {
+      action: 'removeItem',
+      productId: itemId,
+      quantity,
+      reason,
+    });
   };
+
+  const clearError = () => setError(null);
 
   return {
     orders,
+    error,
+    clearError,
+    refreshOrders,
     addOrder,
     updateStatus,
     cancelOrder,
