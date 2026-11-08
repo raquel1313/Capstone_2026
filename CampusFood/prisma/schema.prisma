@@ -1,0 +1,555 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  idUsuario     String   @id @map("id_usuario") @db.Uuid
+  nombre        String   @db.VarChar(100)
+  apellido      String   @db.VarChar(100)
+  activo        Boolean  @default(true)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+
+  roles        UsuarioRol[]
+  menusCreados MenuSemanal[] @relation("MenuCreador")
+
+  pedidos          Pedido[]                @relation("PedidoCliente")
+  cambiosEstado    HistorialEstadoPedido[] @relation("HistorialCambiadoPor")
+  ajustesPedido    AjustePedido[]          @relation("AjusteRealizadoPor")
+  pagosRegistrados Pago[]                  @relation("PagoRegistradoPor")
+  carritos         Carrito[]
+  notificaciones   NotificacionPedido[]
+  reacciones       Reaccion[]
+  encuestasCreadas Encuesta[]
+  votos            Voto[]
+  penalizaciones   Penalizacion[]          @relation("PenalizacionCliente")
+  anulaciones      Penalizacion[]          @relation("PenalizacionAnuladaPor")
+
+  @@map("usuarios")
+}
+
+model Rol {
+  idRol       Int     @id @default(autoincrement()) @map("id_rol")
+  nombre      String  @unique @db.VarChar(50)
+  descripcion String? @db.VarChar(255)
+
+  usuarios UsuarioRol[]
+  permisos RolPermiso[]
+
+  @@map("roles")
+}
+
+model Permiso {
+  idPermiso   Int     @id @default(autoincrement()) @map("id_permiso")
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.VarChar(255)
+
+  roles RolPermiso[]
+
+  @@map("permisos")
+}
+
+model UsuarioRol {
+  idUsuario String @map("id_usuario") @db.Uuid
+  idRol     Int    @map("id_rol")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+  rol     Rol     @relation(fields: [idRol], references: [idRol], onDelete: Cascade)
+
+  @@id([idUsuario, idRol])
+  @@index([idRol])
+  @@map("usuario_rol")
+}
+
+model RolPermiso {
+  idRol     Int @map("id_rol")
+  idPermiso Int @map("id_permiso")
+
+  rol     Rol     @relation(fields: [idRol], references: [idRol], onDelete: Cascade)
+  permiso Permiso @relation(fields: [idPermiso], references: [idPermiso], onDelete: Cascade)
+
+  @@id([idRol, idPermiso])
+  @@index([idPermiso])
+  @@map("rol_permiso")
+}
+
+model CategoriaProducto {
+  idCategoria Int     @id @default(autoincrement()) @map("id_categoria")
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.VarChar(255)
+  activo      Boolean @default(true)
+
+  productos Producto[]
+
+  @@map("categorias_producto")
+}
+
+model Producto {
+  idProducto         Int      @id @default(autoincrement()) @map("id_producto")
+  idCategoria        Int      @map("id_categoria")
+  sku                String   @unique @db.VarChar(50)
+  nombre             String   @db.VarChar(150)
+  descripcion        String?  @db.VarChar(500)
+  precio             Int
+  stock              Int      @default(0)
+  activo             Boolean  @default(true)
+  imagenUrl          String?  @map("imagen_url") @db.Text
+  temaVisual         String   @default("amber") @map("tema_visual") @db.VarChar(20)
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  categoria CategoriaProducto @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict)
+
+  detallesPedido  PedidoDetalle[]
+  detallesCarrito CarritoDetalle[]
+  ajustesPedido   AjustePedido[]
+
+  @@index([idCategoria])
+  @@index([activo])
+  @@map("productos")
+}
+
+enum EstadoMenuSemanal {
+  BORRADOR
+  PUBLICADO
+  CERRADO
+}
+
+model Plato {
+  idPlato     Int     @id @default(autoincrement()) @map("id_plato")
+  nombre      String  @db.VarChar(150)
+  descripcion String? @db.VarChar(500)
+  imagenUrl   String? @map("imagen_url") @db.Text
+  temaVisual  String  @default("amber") @map("tema_visual") @db.VarChar(20)
+
+  calorias        Int?
+  proteinasGr     Decimal? @map("proteinas_gr") @db.Decimal(6, 2)
+  carbohidratosGr Decimal? @map("carbohidratos_gr") @db.Decimal(6, 2)
+  grasasGr        Decimal? @map("grasas_gr") @db.Decimal(6, 2)
+
+  activo Boolean @default(true)
+
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  ofertas          OfertaMenu[]
+  opcionesEncuesta OpcionEncuesta[]
+
+  @@index([activo])
+  @@index([nombre])
+  @@map("platos")
+}
+
+model MenuSemanal {
+  idMenu    Int    @id @default(autoincrement()) @map("id_menu")
+  idCreador String @map("id_creador") @db.Uuid
+
+  fechaInicio DateTime @map("fecha_inicio") @db.Date
+  fechaFin    DateTime @map("fecha_fin") @db.Date
+
+  estado EstadoMenuSemanal @default(BORRADOR)
+
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  creador Usuario @relation("MenuCreador", fields: [idCreador], references: [idUsuario], onDelete: Restrict)
+
+  ofertas OfertaMenu[]
+
+  @@unique([fechaInicio, fechaFin])
+  @@index([idCreador])
+  @@index([estado])
+  @@index([fechaInicio, fechaFin])
+  @@map("menus_semanales")
+}
+
+model OfertaMenu {
+  idOferta Int @id @default(autoincrement()) @map("id_oferta")
+  idMenu   Int @map("id_menu")
+  idPlato  Int @map("id_plato")
+
+  fecha      DateTime @db.Date
+  precio     Int
+  disponible Boolean  @default(true)
+  orden      Int      @default(0)
+
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  menu MenuSemanal @relation(fields: [idMenu], references: [idMenu], onDelete: Cascade)
+
+  plato Plato @relation(fields: [idPlato], references: [idPlato], onDelete: Restrict)
+
+  acompanamientos OfertaAcompanamiento[]
+  reacciones      Reaccion[]
+
+  @@unique([idMenu, idPlato, fecha])
+  @@index([idMenu])
+  @@index([idPlato])
+  @@index([fecha])
+  @@index([disponible])
+  @@map("ofertas_menu")
+}
+
+model Acompanamiento {
+  idAcompanamiento Int     @id @default(autoincrement()) @map("id_acompanamiento")
+  nombre           String  @unique @db.VarChar(100)
+  descripcion      String? @db.VarChar(255)
+  activo           Boolean @default(true)
+
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  ofertas OfertaAcompanamiento[]
+
+  @@index([activo])
+  @@map("acompanamientos")
+}
+
+model OfertaAcompanamiento {
+  idOfertaMenu     Int @map("id_oferta_menu")
+  idAcompanamiento Int @map("id_acompanamiento")
+
+  ofertaMenu OfertaMenu @relation(fields: [idOfertaMenu], references: [idOferta], onDelete: Cascade)
+
+  acompanamiento Acompanamiento @relation(fields: [idAcompanamiento], references: [idAcompanamiento], onDelete: Restrict)
+
+  @@id([idOfertaMenu, idAcompanamiento])
+  @@index([idAcompanamiento])
+  @@map("ofertas_acompanamientos")
+}
+
+// ---------------------------------------------------------------------------
+// Pedidos (pago presencial: no existe pasarela de pago)
+// ---------------------------------------------------------------------------
+
+enum OrigenAccion {
+  CLIENTE
+  PERSONAL
+}
+
+enum MedioPago {
+  EFECTIVO
+  DEBITO
+  CREDITO
+  OTRO
+}
+
+enum EstadoPago {
+  REGISTRADO
+  ANULADO
+}
+
+// Catálogo de estados (PENDIENTE, LISTO, RETIRADO, CANCELADO). Se siembra en el seed.
+model EstadoPedido {
+  idEstado    Int     @id @default(autoincrement()) @map("id_estado")
+  nombre      String  @unique @db.VarChar(30)
+  descripcion String? @db.VarChar(255)
+
+  pedidos   Pedido[]
+  historial HistorialEstadoPedido[]
+
+  @@map("estados_pedido")
+}
+
+model Pedido {
+  idPedido     Int    @id @default(autoincrement()) @map("id_pedido")
+  idUsuario    String @map("id_usuario") @db.Uuid
+  idEstado     Int    @map("id_estado")
+  // Código que el cliente presenta en el mesón (ej. CF-A7K2). Lo genera el servidor.
+  codigoRetiro String @unique @map("codigo_retiro") @db.VarChar(12)
+  // Correo del cliente al momento de pedir (el correo vive en Supabase Auth).
+  clienteEmail String @map("cliente_email") @db.VarChar(255)
+  // Total en pesos chilenos (entero).
+  total        Int
+
+  origenCancelacion OrigenAccion? @map("origen_cancelacion")
+  motivoCancelacion String?       @map("motivo_cancelacion") @db.VarChar(255)
+  fechaCancelacion  DateTime?     @map("fecha_cancelacion") @db.Timestamptz(6)
+  fechaConfirmacion DateTime?     @map("fecha_confirmacion") @db.Timestamptz(6)
+  fechaRetiro       DateTime?     @map("fecha_retiro") @db.Timestamptz(6)
+
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  usuario Usuario      @relation("PedidoCliente", fields: [idUsuario], references: [idUsuario], onDelete: Restrict)
+  estado  EstadoPedido @relation(fields: [idEstado], references: [idEstado], onDelete: Restrict)
+
+  detalles       PedidoDetalle[]
+  ajustes        AjustePedido[]
+  historial      HistorialEstadoPedido[]
+  pago           Pago?
+  notificaciones NotificacionPedido[]
+  penalizaciones Penalizacion[]
+
+  @@index([idUsuario, fechaCreacion])
+  @@index([idEstado, fechaCreacion])
+  @@map("pedidos")
+}
+
+model PedidoDetalle {
+  idDetalle      Int    @id @default(autoincrement()) @map("id_detalle")
+  idPedido       Int    @map("id_pedido")
+  idProducto     Int    @map("id_producto")
+  // Copia del nombre y precio al momento de la compra: el historial no cambia si el producto se edita.
+  nombreProducto String @map("nombre_producto") @db.VarChar(150)
+  cantidad       Int
+  precioUnitario Int    @map("precio_unitario")
+  subtotal       Int
+
+  pedido   Pedido   @relation(fields: [idPedido], references: [idPedido], onDelete: Cascade)
+  producto Producto @relation(fields: [idProducto], references: [idProducto], onDelete: Restrict)
+
+  @@unique([idPedido, idProducto])
+  @@index([idProducto])
+  @@map("pedido_detalle")
+}
+
+// Productos quitados de un pedido pendiente (por el cliente o por el casino).
+model AjustePedido {
+  idAjuste       Int          @id @default(autoincrement()) @map("id_ajuste")
+  idPedido       Int          @map("id_pedido")
+  idProducto     Int          @map("id_producto")
+  nombreProducto String       @map("nombre_producto") @db.VarChar(150)
+  cantidad       Int
+  origen         OrigenAccion
+  motivo         String       @db.VarChar(255)
+  realizadoPor   String?      @map("realizado_por") @db.Uuid
+  fecha          DateTime     @default(now()) @db.Timestamptz(6)
+
+  pedido   Pedido   @relation(fields: [idPedido], references: [idPedido], onDelete: Cascade)
+  producto Producto @relation(fields: [idProducto], references: [idProducto], onDelete: Restrict)
+  usuario  Usuario? @relation("AjusteRealizadoPor", fields: [realizadoPor], references: [idUsuario], onDelete: SetNull)
+
+  @@index([idPedido])
+  @@map("ajustes_pedido")
+}
+
+model HistorialEstadoPedido {
+  idHistorial Int      @id @default(autoincrement()) @map("id_historial")
+  idPedido    Int      @map("id_pedido")
+  idEstado    Int      @map("id_estado")
+  cambiadoPor String?  @map("cambiado_por") @db.Uuid
+  motivo      String?  @db.VarChar(255)
+  fechaCambio DateTime @default(now()) @map("fecha_cambio") @db.Timestamptz(6)
+
+  pedido  Pedido       @relation(fields: [idPedido], references: [idPedido], onDelete: Cascade)
+  estado  EstadoPedido @relation(fields: [idEstado], references: [idEstado], onDelete: Restrict)
+  usuario Usuario?     @relation("HistorialCambiadoPor", fields: [cambiadoPor], references: [idUsuario], onDelete: SetNull)
+
+  @@index([idPedido, fechaCambio])
+  @@map("historial_estado_pedido")
+}
+
+// Pago presencial al retirar. Como máximo uno por pedido.
+model Pago {
+  idPago        Int        @id @default(autoincrement()) @map("id_pago")
+  idPedido      Int        @unique @map("id_pedido")
+  monto         Int
+  medioPago     MedioPago  @default(EFECTIVO) @map("medio_pago")
+  estado        EstadoPago @default(REGISTRADO)
+  registradoPor String?    @map("registrado_por") @db.Uuid
+  fechaPago     DateTime   @default(now()) @map("fecha_pago") @db.Timestamptz(6)
+
+  pedido  Pedido   @relation(fields: [idPedido], references: [idPedido], onDelete: Restrict)
+  usuario Usuario? @relation("PagoRegistradoPor", fields: [registradoPor], references: [idUsuario], onDelete: SetNull)
+
+  @@map("pagos")
+}
+
+// ---------------------------------------------------------------------------
+// Carrito (un carrito ACTIVO por usuario; al pedir pasa a CONVERTIDO)
+// ---------------------------------------------------------------------------
+
+enum EstadoCarrito {
+  ACTIVO
+  CONVERTIDO
+}
+
+model Carrito {
+  idCarrito          Int           @id @default(autoincrement()) @map("id_carrito")
+  idUsuario          String        @map("id_usuario") @db.Uuid
+  estado             EstadoCarrito @default(ACTIVO)
+  fechaCreacion      DateTime      @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime      @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  usuario  Usuario          @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+  detalles CarritoDetalle[]
+
+  @@index([idUsuario, estado])
+  @@map("carritos")
+}
+
+model CarritoDetalle {
+  idCarrito  Int @map("id_carrito")
+  idProducto Int @map("id_producto")
+  cantidad   Int
+
+  carrito  Carrito  @relation(fields: [idCarrito], references: [idCarrito], onDelete: Cascade)
+  producto Producto @relation(fields: [idProducto], references: [idProducto], onDelete: Cascade)
+
+  @@id([idCarrito, idProducto])
+  @@index([idProducto])
+  @@map("carrito_detalle")
+}
+
+// ---------------------------------------------------------------------------
+// Notificaciones de pedidos
+// ---------------------------------------------------------------------------
+
+enum TipoNotificacion {
+  PEDIDO_LISTO
+  PEDIDO_CANCELADO
+  PRODUCTO_RETIRADO
+}
+
+model NotificacionPedido {
+  idNotificacion Int              @id @default(autoincrement()) @map("id_notificacion")
+  idUsuario      String           @map("id_usuario") @db.Uuid
+  idPedido       Int?             @map("id_pedido")
+  tipo           TipoNotificacion
+  // Identifica el aviso (ej. "ready:42") para no repetirlo aunque el usuario lo descarte.
+  clave          String           @db.VarChar(60)
+  titulo         String           @db.VarChar(120)
+  mensaje        String           @db.VarChar(500)
+  leida          Boolean          @default(false)
+  fechaCreacion  DateTime         @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaLectura   DateTime?        @map("fecha_lectura") @db.Timestamptz(6)
+  // Descartar (deslizar) oculta el aviso sin borrarlo.
+  fechaDescarte  DateTime?        @map("fecha_descarte") @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+  pedido  Pedido? @relation(fields: [idPedido], references: [idPedido], onDelete: SetNull)
+
+  @@unique([idUsuario, clave])
+  @@index([idUsuario, fechaDescarte, fechaCreacion])
+  @@map("notificaciones_pedido")
+}
+
+// ---------------------------------------------------------------------------
+// Reacciones a los platos del menú (una por usuario y oferta)
+// ---------------------------------------------------------------------------
+
+enum NivelReaccion {
+  EXCELENTE
+  BUENO
+  REGULAR
+  MALO
+}
+
+model Reaccion {
+  idReaccion         Int           @id @default(autoincrement()) @map("id_reaccion")
+  idUsuario          String        @map("id_usuario") @db.Uuid
+  idOferta           Int           @map("id_oferta")
+  nivel              NivelReaccion
+  fechaCreacion      DateTime      @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+  fechaActualizacion DateTime      @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
+
+  usuario Usuario    @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+  oferta  OfertaMenu @relation(fields: [idOferta], references: [idOferta], onDelete: Cascade)
+
+  @@unique([idUsuario, idOferta])
+  @@index([idOferta])
+  @@index([fechaCreacion])
+  @@map("reacciones")
+}
+
+// ---------------------------------------------------------------------------
+// Encuestas y votaciones (un voto por usuario y encuesta)
+// ---------------------------------------------------------------------------
+
+// ACTIVA y CERRADA = encuesta vigente (se puede cerrar y reabrir); ARCHIVADA = historial.
+enum EstadoEncuesta {
+  ACTIVA
+  CERRADA
+  ARCHIVADA
+}
+
+model Encuesta {
+  idEncuesta    Int            @id @default(autoincrement()) @map("id_encuesta")
+  titulo        String         @db.VarChar(255)
+  descripcion   String?        @db.Text
+  fechaInicio   DateTime       @map("fecha_inicio") @db.Date
+  fechaFin      DateTime       @map("fecha_fin") @db.Date
+  estado        EstadoEncuesta @default(ACTIVA)
+  creadoPor     String         @map("creado_por") @db.Uuid
+  fechaCreacion DateTime       @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+
+  creador  Usuario          @relation(fields: [creadoPor], references: [idUsuario], onDelete: Restrict)
+  opciones OpcionEncuesta[]
+  votos    Voto[]
+
+  @@index([estado, fechaCreacion])
+  @@map("encuestas")
+}
+
+// La opción es un texto; si coincide con un plato del catálogo queda enlazada a él.
+model OpcionEncuesta {
+  idOpcion   Int    @id @default(autoincrement()) @map("id_opcion")
+  idEncuesta Int    @map("id_encuesta")
+  etiqueta   String @db.VarChar(150)
+  idPlato    Int?   @map("id_plato")
+  orden      Int    @default(0)
+
+  encuesta Encuesta @relation(fields: [idEncuesta], references: [idEncuesta], onDelete: Cascade)
+  plato    Plato?   @relation(fields: [idPlato], references: [idPlato], onDelete: SetNull)
+  votos    Voto[]
+
+  @@unique([idOpcion, idEncuesta])
+  @@index([idEncuesta])
+  @@index([idPlato])
+  @@map("opciones_encuesta")
+}
+
+model Voto {
+  idVoto     Int      @id @default(autoincrement()) @map("id_voto")
+  idEncuesta Int      @map("id_encuesta")
+  idOpcion   Int      @map("id_opcion")
+  idUsuario  String   @map("id_usuario") @db.Uuid
+  fechaVoto  DateTime @default(now()) @map("fecha_voto") @db.Timestamptz(6)
+
+  encuesta Encuesta       @relation(fields: [idEncuesta], references: [idEncuesta], onDelete: Cascade)
+  // La opción debe pertenecer a la misma encuesta (clave compuesta).
+  opcion   OpcionEncuesta @relation(fields: [idOpcion, idEncuesta], references: [idOpcion, idEncuesta], onDelete: Cascade)
+  usuario  Usuario        @relation(fields: [idUsuario], references: [idUsuario], onDelete: Restrict)
+
+  @@unique([idEncuesta, idUsuario])
+  @@index([idOpcion])
+  @@map("votos")
+}
+
+// ---------------------------------------------------------------------------
+// Faltas de los clientes. El bloqueo (3 faltas en 7 días = 3 días) se calcula
+// sobre las faltas no anuladas; la amnistía anula las faltas vigentes.
+// ---------------------------------------------------------------------------
+
+enum TipoPenalizacion {
+  CANCELACION_TARDIA
+  NO_RETIRO
+}
+
+model Penalizacion {
+  idPenalizacion Int              @id @default(autoincrement()) @map("id_penalizacion")
+  idUsuario      String           @map("id_usuario") @db.Uuid
+  idPedido       Int              @map("id_pedido")
+  tipo           TipoPenalizacion
+  // Momento en que ocurrió la falta (cuenta para la ventana de 7 días).
+  fechaFalta     DateTime         @map("fecha_falta") @db.Timestamptz(6)
+  anulada        Boolean          @default(false)
+  fechaAnulacion DateTime?        @map("fecha_anulacion") @db.Timestamptz(6)
+  anuladaPor     String?          @map("anulada_por") @db.Uuid
+  fechaCreacion  DateTime         @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
+
+  usuario  Usuario  @relation("PenalizacionCliente", fields: [idUsuario], references: [idUsuario], onDelete: Restrict)
+  pedido   Pedido   @relation(fields: [idPedido], references: [idPedido], onDelete: Restrict)
+  anulador Usuario? @relation("PenalizacionAnuladaPor", fields: [anuladaPor], references: [idUsuario], onDelete: SetNull)
+
+  // Un pedido genera como máximo una falta de cada tipo.
+  @@unique([idPedido, tipo])
+  @@index([idUsuario, anulada, fechaFalta])
+  @@map("penalizaciones")
+}

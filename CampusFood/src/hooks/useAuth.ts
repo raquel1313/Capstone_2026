@@ -1,194 +1,333 @@
+'use client';
+
 import {
+  useCallback,
+  useEffect,
+  useMemo,
   useState,
-  useSyncExternalStore,
 } from 'react';
 
-import {
-  loadUsers,
-  type Role,
-} from './useUsers';
+import { createClient } from '@/lib/supabase/client';
 
-export type { Role };
+export type Role =
+  | 'student'
+  | 'worker'
+  | 'admin';
 
 export type User = {
+  id: string;
   username: string;
   name: string;
   role: Role;
 };
 
-const SESSION_KEY = 'campusfood_session';
-const SESSION_UPDATE_EVENT = 'campusfood-session-update';
-
-function readSessionSnapshot(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.sessionStorage.getItem(
-      SESSION_KEY
-    );
-  } catch {
-    return null;
-  }
-}
-
-function getServerSnapshot(): null {
-  return null;
-}
-
-function parseSession(
-  raw: string | null
-): User | null {
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      !('username' in parsed) ||
-      !('name' in parsed) ||
-      !('role' in parsed)
-    ) {
-      return null;
+export type LoginResult =
+  | {
+      ok: true;
     }
-
-    const user = parsed as Partial<User>;
-
-    if (
-      typeof user.username !== 'string' ||
-      typeof user.name !== 'string' ||
-      (user.role !== 'student' &&
-        user.role !== 'worker' &&
-        user.role !== 'admin')
-    ) {
-      return null;
-    }
-
-    return {
-      username: user.username,
-      name: user.name,
-      role: user.role,
+  | {
+      ok: false;
+      message: string;
     };
-  } catch {
+
+type ProfileResponse = {
+  user?: {
+    id?: unknown;
+    username?: unknown;
+    name?: unknown;
+    role?: unknown;
+  };
+  error?: unknown;
+  code?: unknown;
+};
+
+function isRole(
+  value: unknown,
+): value is Role {
+  return (
+    value === 'student' ||
+    value === 'worker' ||
+    value === 'admin'
+  );
+}
+
+function parseProfile(
+  data: ProfileResponse,
+): User | null {
+  const profile = data.user;
+
+  if (
+    !profile ||
+    typeof profile.id !== 'string' ||
+    typeof profile.username !== 'string' ||
+    typeof profile.name !== 'string' ||
+    !isRole(profile.role)
+  ) {
     return null;
   }
-}
 
-function subscribeToSession(
-  callback: () => void
-): () => void {
-  if (typeof window === 'undefined') {
-    return () => {};
-  }
-
-  window.addEventListener(
-    SESSION_UPDATE_EVENT,
-    callback
-  );
-
-  return () => {
-    window.removeEventListener(
-      SESSION_UPDATE_EVENT,
-      callback
-    );
+  return {
+    id: profile.id,
+    username: profile.username,
+    name: profile.name,
+    role: profile.role,
   };
-}
-
-function notifySessionChange(): void {
-  window.dispatchEvent(
-    new Event(SESSION_UPDATE_EVENT)
-  );
-}
-
-function saveSession(user: User): void {
-  window.sessionStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify(user)
-  );
-
-  notifySessionChange();
-}
-
-function clearSession(): void {
-  window.sessionStorage.removeItem(
-    SESSION_KEY
-  );
-
-  notifySessionChange();
 }
 
 export function useAuth() {
-  const sessionSnapshot =
-    useSyncExternalStore(
-      subscribeToSession,
-      readSessionSnapshot,
-      getServerSnapshot
-    );
-
-  const user = parseSession(
-    sessionSnapshot
+  const supabase = useMemo(
+    () => createClient(),
+    [],
   );
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [user, setUser] =
+    useState<User | null>(null);
 
-  const login = (
-    username: string,
-    password: string
-  ) => {
-    const normalizedUsername =
-      username.trim().toLowerCase();
+  const [loading, setLoading] =
+    useState(true);
 
-    const match = loadUsers().find(
-      (candidate) =>
-        candidate.username.toLowerCase() ===
-          normalizedUsername &&
-        candidate.password === password
-    );
 
-    if (!match) {
-      setError(
-        'Usuario o contraseña incorrectos.'
+  const loadProfile = useCallback(
+    async (): Promise<User | null> => {
+      const response = await fetch(
+        '/api/auth/me',
+        {
+          method: 'GET',
+          cache: 'no-store',
+          credentials:
+            'same-origin',
+        },
       );
 
-      return false;
+      /*
+       * 401 significa que no existe
+       * una sesión autenticada válida.
+       */
+      if (response.status === 401) {
+        setUser(null);
+
+        return null;
+      }
+
+      let data: ProfileResponse;
+
+      try {
+        data =
+          (await response.json()) as ProfileResponse;
+      } catch {
+        throw new Error(
+          'La respuesta de /api/auth/me no contiene JSON válido.',
+        );
+      }
+
+      if (!response.ok) {
+        setUser(null);
+
+        return null;
+      }
+
+      const profile =
+        parseProfile(data);
+
+      if (!profile) {
+        throw new Error(
+          'La respuesta de /api/auth/me no tiene el formato esperado.',
+        );
+      }
+
+      setUser(profile);
+
+      return profile;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    async function initializeAuth() {
+      try {
+        await loadProfile();
+      } catch (error) {
+        console.error(
+          'No se pudo restaurar la sesión:',
+          error,
+        );
+
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
     }
 
-    if (match.status === 'Inactivo') {
-      setError(
-        'Tu cuenta está desactivada. Comunícate con soporte técnico para reactivarla.'
+    void initializeAuth();
+
+    const {
+      data: {
+        subscription,
+      },
+    } =
+      supabase.auth.onAuthStateChange(
+        (event) => {
+          if (!active) {
+            return;
+          }
+
+          if (
+            event === 'SIGNED_OUT'
+          ) {
+            setUser(null);
+            setLoading(false);
+
+            return;
+          }
+
+          if (
+            event === 'SIGNED_IN' ||
+            event ===
+              'TOKEN_REFRESHED' ||
+            event ===
+              'USER_UPDATED'
+          ) {
+            window.setTimeout(
+              () => {
+                if (!active) {
+                  return;
+                }
+
+                void loadProfile()
+                  .catch(
+                    (error) => {
+                      console.error(
+                        'No se pudo actualizar el perfil autenticado:',
+                        error,
+                      );
+
+                      setUser(
+                        null,
+                      );
+                    },
+                  )
+                  .finally(
+                    () => {
+                      if (
+                        active
+                      ) {
+                        setLoading(
+                          false,
+                        );
+                      }
+                    },
+                  );
+              },
+              0,
+            );
+          }
+        },
       );
 
-      return false;
-    }
+    return () => {
+      active = false;
 
-    const loggedUser: User = {
-      username: match.username,
-      name: match.name,
-      role: match.role,
+      subscription.unsubscribe();
     };
+  }, [
+    loadProfile,
+    supabase,
+  ]);
 
-    saveSession(loggedUser);
+  async function login(
+    username: string,
+    password: string,
+  ): Promise<LoginResult> {
+    const email =
+      username
+        .trim()
+        .toLowerCase();
 
-    setError(null);
+    setLoading(true);
 
-    return true;
-  };
+    try {
+      const {
+        error,
+      } =
+        await supabase.auth.signInWithPassword(
+          {
+            email,
+            password,
+          },
+        );
 
-  const logout = () => {
-    clearSession();
-    setError(null);
-  };
+      if (error) {
+        return {
+          ok: false,
+          message:
+            'Correo o contraseña incorrectos.',
+        };
+      }
+
+      const profile =
+        await loadProfile();
+
+      if (!profile) {
+        await supabase.auth.signOut();
+
+        return {
+          ok: false,
+          message:
+            'No fue posible cargar el perfil del usuario.',
+        };
+      }
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      console.error(
+        'Error durante el inicio de sesión:',
+        error,
+      );
+
+      await supabase.auth.signOut();
+
+      setUser(null);
+
+      return {
+        ok: false,
+        message:
+          'No fue posible iniciar sesión.',
+      };
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function logout(): Promise<void> {
+    const {
+      error,
+    } =
+      await supabase.auth.signOut();
+
+    if (error) {
+      console.error(
+        'No se pudo cerrar la sesión:',
+        error,
+      );
+
+      return;
+    }
+
+    setUser(null);
+  }
 
   return {
     user,
+    loading,
     login,
     logout,
-    error,
   };
 }

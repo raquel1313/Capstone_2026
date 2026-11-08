@@ -46,7 +46,7 @@ export function OrdersView({
   // Disponibles primero, agotados al final. El orden es estable,
   // así que entre productos con el mismo estado se mantiene el orden original.
   const sortedProducts = [...filteredProducts].sort(
-    (a, b) => Number(a.soldOut ?? false) - Number(b.soldOut ?? false)
+    (a, b) => Number(a.soldOut ?? a.stock <= 0) - Number(b.soldOut ?? b.stock <= 0)
   );
 
   return (
@@ -119,7 +119,7 @@ export function OrdersView({
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
           {sortedProducts.map((product) => {
-            const isSoldOut = product.soldOut ?? false;
+            const isSoldOut = product.soldOut ?? product.stock <= 0;
 
             return (
               <div

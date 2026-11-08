@@ -43,6 +43,8 @@ El proyecto fue desarrollado utilizando las siguientes tecnologías y herramient
 | [Tailwind CSS](https://tailwindcss.com/) | Framework CSS para el diseño de interfaces. |
 | [Lucide React](https://lucide.dev/) | Biblioteca de iconos. |
 | [Google Fonts](https://fonts.google.com/) | Tipografías DM Sans, Fraunces y Caveat. |
+| [Prisma ORM](https://www.prisma.io/) | Acceso a la base de datos, esquema y migraciones. |
+| [PostgreSQL en Supabase](https://supabase.com/) | Base de datos y autenticación de usuarios (Supabase Auth). |
 
 ## Instalación y ejecución
 
@@ -54,25 +56,45 @@ El proyecto fue desarrollado utilizando las siguientes tecnologías y herramient
 
 ### Pasos de instalación
 
-1. Clonar el repositorio:
+1. Clonar el repositorio e ingresar a la carpeta del proyecto:
 
 ```bash
 git clone https://github.com/raquel1313/Capstone_2026
+cd Capstone_2026/CampusFood
 ```
 
-2. Ingresar a la carpeta del proyecto:
-
-```bash
-cd CampusFood
-```
-
-3. Instalar las dependencias:
+2. Instalar las dependencias (en el mismo sistema operativo en que se ejecutará; no copies `node_modules` entre equipos):
 
 ```bash
 npm install
 ```
 
-4. Iniciar el servidor de desarrollo:
+3. Configurar las variables de entorno. Copia `.env.example` a `.env` y `.env.local` y completa los valores de tu proyecto de Supabase (conexión a la base de datos, URL y llaves). Estos archivos están ignorados por Git.
+
+4. Crear las tablas y cargar los datos iniciales (roles, permisos, estados de pedido y catálogo de productos). Usa una base de datos de **desarrollo**:
+
+```bash
+npm run db:migrate    # aplica las migraciones
+npm run db:generate   # genera el cliente de Prisma
+npm run db:seed       # roles, permisos, estados y productos (se puede repetir sin perder datos)
+```
+
+5. Crear los usuarios de prueba. Las contraseñas las guarda Supabase Auth, no la base de datos de CampusFood:
+
+   - En el panel de Supabase, *Authentication → Users*, crea un usuario con correo y contraseña e incluye `nombre` y `apellido` en los metadatos. Un disparador lo registra en CampusFood con el rol `student`.
+   - Para convertirlo en trabajador o administrador, ejecuta en el *SQL Editor* (cambia el correo y el rol `worker` o `admin`):
+
+```sql
+INSERT INTO public.usuario_rol (id_usuario, id_rol)
+SELECT u.id, r.id_rol
+FROM auth.users u, public.roles r
+WHERE u.email = 'correo@ejemplo.cl' AND r.nombre = 'admin'
+ON CONFLICT DO NOTHING;
+```
+
+   Una vez que exista un administrador, el resto de las cuentas se crean desde el panel *Usuarios*.
+
+6. Iniciar el servidor de desarrollo:
 
 ```bash
 npm run dev
@@ -82,6 +104,15 @@ La aplicación estará disponible en:
 
 ```text
 http://localhost:3000
+```
+
+### Verificación
+
+```bash
+npm run db:validate   # valida el esquema de Prisma
+npm run typecheck     # tipos de TypeScript
+npm run lint          # reglas de ESLint
+npm run build         # compilación de producción
 ```
 
 ### Compilación para producción

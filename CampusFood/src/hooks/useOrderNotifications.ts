@@ -1,409 +1,115 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useSyncExternalStore,
-} from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { formatPrice } from '@/data';
+import type { OrderNotification } from '@/types';
 
-import type { Order } from '@/types';
+export type { OrderNotification } from '@/types';
 
-export type OrderNotification = {
-  id: string;
-  orderId: string;
-  // Notificaciones guardadas antes no tienen tipo: se tratan como "ready"
-  kind?: 'ready' | 'cancelled' | 'adjusted';
-  // Identificador único del aviso, para no repetirlo ni volver a crearlo si se descarta
-  ref?: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
+const POLL_INTERVAL_MS = 10000;
+
+type NotificationState = {
+  owner: string | null;
+  items: OrderNotification[];
 };
 
-const STORAGE_PREFIX = 'campusfood_notifications_';
-const DISMISSED_PREFIX = 'campusfood_dismissed_orders_';
+async function patch(body: Record<string, unknown>) {
+  const response = await fetch('/api/notifications', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 
-const STORAGE_UPDATE_EVENT = 'campusfood-storage-update';
-const EMPTY_ARRAY_JSON = '[]';
-
-type StorageUpdateDetail = {
-  key: string;
-};
-
-function parseStoredArray<T>(raw: string): T[] {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
-    return [];
+  if (!response.ok) {
+    throw new Error('No se pudo actualizar la notificación.');
   }
 }
 
-function readStorage(key: string | null): string {
-  if (!key || typeof window === 'undefined') {
-    return EMPTY_ARRAY_JSON;
-  }
+/**
+ * Avisos de pedidos guardados en la base de datos. Los crea el servidor cuando
+ * un pedido queda listo, el casino lo cancela o quita un producto.
+ */
+export function useOrderNotifications(userId: string | null) {
+  const [state, setState] = useState<NotificationState>({
+    owner: null,
+    items: [],
+  });
 
-  try {
-    return window.localStorage.getItem(key) ?? EMPTY_ARRAY_JSON;
-  } catch {
-    return EMPTY_ARRAY_JSON;
-  }
-}
+  const notifications = state.owner === userId ? state.items : [];
 
-function writeStorageArray<T>(
-  key: string | null,
-  value: T[]
-): void {
-  if (!key || typeof window === 'undefined') {
-    return;
-  }
+  const refresh = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
 
-  window.localStorage.setItem(
-    key,
-    JSON.stringify(value)
-  );
+    try {
+      const response = await fetch('/api/notifications', { cache: 'no-store' });
 
-  window.dispatchEvent(
-    new CustomEvent<StorageUpdateDetail>(
-      STORAGE_UPDATE_EVENT,
-      {
-        detail: { key },
+      if (!response.ok) {
+        return;
       }
-    )
-  );
-}
 
-function subscribeToStorageKey(
-  key: string | null,
-  callback: () => void
-): () => void {
-  if (!key || typeof window === 'undefined') {
-    return () => {};
-  }
+      const data = (await response.json()) as {
+        notifications?: OrderNotification[];
+      };
 
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key === key) {
-      callback();
+      setState({ owner: userId, items: data.notifications ?? [] });
+    } catch (error) {
+      console.error('No se pudieron cargar las notificaciones:', error);
     }
-  };
-
-  const handleLocalUpdate = (event: Event) => {
-    const customEvent =
-      event as CustomEvent<StorageUpdateDetail>;
-
-    if (customEvent.detail?.key === key) {
-      callback();
-    }
-  };
-
-  window.addEventListener(
-    'storage',
-    handleStorage
-  );
-
-  window.addEventListener(
-    STORAGE_UPDATE_EVENT,
-    handleLocalUpdate
-  );
-
-  return () => {
-    window.removeEventListener(
-      'storage',
-      handleStorage
-    );
-
-    window.removeEventListener(
-      STORAGE_UPDATE_EVENT,
-      handleLocalUpdate
-    );
-  };
-}
-
-function getServerSnapshot(): string {
-  return EMPTY_ARRAY_JSON;
-}
-
-function useStoredArray<T>(
-  key: string | null
-): T[] {
-  const subscribe = useCallback(
-    (callback: () => void) =>
-      subscribeToStorageKey(key, callback),
-    [key]
-  );
-
-  const getSnapshot = useCallback(
-    () => readStorage(key),
-    [key]
-  );
-
-  const snapshot = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot
-  );
-
-  return useMemo(
-    () => parseStoredArray<T>(snapshot),
-    [snapshot]
-  );
-}
-
-function kindOf(notification: OrderNotification) {
-  return notification.kind ?? 'ready';
-}
-
-function refOf(notification: OrderNotification) {
-  return notification.ref ?? `${notification.orderId}:${kindOf(notification)}`;
-}
-
-export function useOrderNotifications(
-  orders: Order[],
-  username: string | null
-) {
-  const notificationsKey = username
-    ? STORAGE_PREFIX + username
-    : null;
-
-  const dismissedKey = username
-    ? DISMISSED_PREFIX + username
-    : null;
-
-  const notifications =
-    useStoredArray<OrderNotification>(
-      notificationsKey
-    );
+  }, [userId]);
 
   useEffect(() => {
-    if (
-      !username ||
-      !notificationsKey ||
-      !dismissedKey
-    ) {
+    if (!userId) {
       return;
     }
 
-    const currentNotifications =
-      parseStoredArray<OrderNotification>(
-        readStorage(notificationsKey)
-      );
+    const first = setTimeout(() => void refresh(), 0);
+    const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
 
-    const currentDismissed =
-      parseStoredArray<string>(
-        readStorage(dismissedKey)
-      );
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
+  }, [userId, refresh]);
 
-    // Los descartados antiguos eran solo el número de pedido
-    // y se interpretan como avisos de "listo".
-    const alreadyHandled = new Set<string>([
-      ...currentNotifications.map(refOf),
-      ...currentDismissed.map((entry) =>
-        entry.includes(':') ? entry : `${entry}:ready`
-      ),
-    ]);
-
-    const newNotifications:
-      OrderNotification[] = [];
-
-    for (const order of orders) {
-      if (order.username !== username) {
-        continue;
-      }
-
-      // El casino quitó un producto de un pedido (si se canceló completo, avisa la cancelación)
-      if (order.status !== 'cancelado') {
-        for (const adjustment of order.adjustments ?? []) {
-          if (adjustment.by !== 'personal') {
-            continue;
-          }
-
-          const ref = `${order.id}:adjusted:${adjustment.at}`;
-
-          if (alreadyHandled.has(ref)) {
-            continue;
-          }
-
-          alreadyHandled.add(ref);
-
-          newNotifications.push({
-            id: `notif-${Date.now()}-${order.id}-adjusted-${newNotifications.length}`,
-            orderId: order.id,
-            kind: 'adjusted',
-            ref,
-            message: `El casino quitó ${adjustment.quantity}x ${adjustment.name} de tu pedido ${order.id}. Motivo: ${adjustment.reason}. Nuevo total: ${formatPrice(order.subtotal)}.`,
-            read: false,
-            createdAt: new Date().toISOString(),
-          });
-        }
-      }
-
-      if (order.status === 'listo') {
-        if (alreadyHandled.has(`${order.id}:ready`)) {
-          continue;
-        }
-
-        newNotifications.push({
-          id: `notif-${Date.now()}-${order.id}-ready`,
-          orderId: order.id,
-          kind: 'ready',
-          message: `Tu pedido ${order.id} está listo para retirar.`,
-          read: false,
-          createdAt: new Date().toISOString(),
-        });
-
-        continue;
-      }
-
-      // Solo se avisa si cancela el casino; si el cliente cancela, ya lo sabe
-      if (
-        order.status === 'cancelado' &&
-        order.cancelledBy === 'personal'
-      ) {
-        if (alreadyHandled.has(`${order.id}:cancelled`)) {
-          continue;
-        }
-
-        const reason = order.cancelReason
-          ? ` Motivo: ${order.cancelReason}.`
-          : '';
-
-        newNotifications.push({
-          id: `notif-${Date.now()}-${order.id}-cancelled`,
-          orderId: order.id,
-          kind: 'cancelled',
-          message: `Tu pedido ${order.id} fue cancelado por el casino.${reason}`,
-          read: false,
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }
-
-    if (newNotifications.length === 0) {
-      return;
-    }
-
-    writeStorageArray(
-      notificationsKey,
-      [
-        ...newNotifications,
-        ...currentNotifications,
-      ]
-    );
-  }, [
-    orders,
-    username,
-    notificationsKey,
-    dismissedKey,
-  ]);
-
-  const markAsRead = (id: string) => {
-    if (!notificationsKey) {
-      return;
-    }
-
-    const current =
-      parseStoredArray<OrderNotification>(
-        readStorage(notificationsKey)
-      );
-
-    const updated = current.map(
-      (notification) =>
-        notification.id === id
-          ? {
-              ...notification,
-              read: true,
-            }
-          : notification
-    );
-
-    writeStorageArray(
-      notificationsKey,
-      updated
-    );
-  };
-
-  const markAllAsRead = () => {
-    if (!notificationsKey) {
-      return;
-    }
-
-    const current =
-      parseStoredArray<OrderNotification>(
-        readStorage(notificationsKey)
-      );
-
-    const updated = current.map(
-      (notification) => ({
-        ...notification,
-        read: true,
-      })
-    );
-
-    writeStorageArray(
-      notificationsKey,
-      updated
-    );
-  };
-
-  const dismissNotification = (
-    id: string
+  // Se actualiza la pantalla al instante y se guarda en el servidor; si falla, se recarga.
+  const apply = (
+    update: (items: OrderNotification[]) => OrderNotification[],
+    body: Record<string, unknown>
   ) => {
-    if (
-      !notificationsKey ||
-      !dismissedKey
-    ) {
+    if (!userId) {
       return;
     }
 
-    const currentNotifications =
-      parseStoredArray<OrderNotification>(
-        readStorage(notificationsKey)
-      );
+    setState((current) => ({
+      owner: userId,
+      items: update(current.owner === userId ? current.items : []),
+    }));
 
-    const target =
-      currentNotifications.find(
-        (notification) =>
-          notification.id === id
-      );
-
-    if (!target) {
-      return;
-    }
-
-    const dismissedEntry = refOf(target);
-
-    const currentDismissed =
-      parseStoredArray<string>(
-        readStorage(dismissedKey)
-      );
-
-    if (!currentDismissed.includes(dismissedEntry)) {
-      writeStorageArray(
-        dismissedKey,
-        [
-          ...currentDismissed,
-          dismissedEntry,
-        ]
-      );
-    }
-
-    writeStorageArray(
-      notificationsKey,
-      currentNotifications.filter(
-        (notification) =>
-          notification.id !== id
-      )
-    );
+    patch(body).catch((error) => {
+      console.error(error);
+      void refresh();
+    });
   };
 
-  const unreadCount =
-    notifications.filter(
-      (notification) =>
-        !notification.read
-    ).length;
+  const markAsRead = (id: string) =>
+    apply(
+      (items) =>
+        items.map((item) => (item.id === id ? { ...item, read: true } : item)),
+      { action: 'read', id }
+    );
+
+  const markAllAsRead = () =>
+    apply((items) => items.map((item) => ({ ...item, read: true })), {
+      action: 'readAll',
+    });
+
+  const dismissNotification = (id: string) =>
+    apply((items) => items.filter((item) => item.id !== id), {
+      action: 'dismiss',
+      id,
+    });
+
+  const unreadCount = notifications.filter((item) => !item.read).length;
 
   return {
     notifications,

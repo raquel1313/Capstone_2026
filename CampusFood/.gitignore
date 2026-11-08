@@ -6,8 +6,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# dependencies
-node_modules
+# dependencias
+node_modules/
 
 # next.js
 .next/
@@ -16,18 +16,24 @@ next-env.d.ts
 # typescript
 *.tsbuildinfo
 
-node_modules
-dist
-dist-ssr
-*.local
+# build
+dist/
+dist-ssr/
 
+# local
+.env
+.env.local
+.env*.local
+
+# editor / OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
+
+/generated/prisma/

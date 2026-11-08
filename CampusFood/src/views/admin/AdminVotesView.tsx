@@ -389,7 +389,7 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
 
       {invalidRange && (
         <p className="mt-2 text-xs text-red-500">
-          La fecha "Hasta" no puede ser anterior a "Desde".
+          La fecha &quot;Hasta&quot; no puede ser anterior a &quot;Desde&quot;.
         </p>
       )}
 

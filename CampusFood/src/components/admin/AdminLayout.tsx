@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { LogOut } from 'lucide-react';
 
@@ -14,58 +14,216 @@ import type {
 import type { Product } from '@/data';
 
 import type { User } from '@/hooks/useAuth';
-
 import type { BlockedUser } from '@/hooks/usePenalties';
-
 import type { VotePoll } from '@/hooks/useVotes';
 
-import { getCommittedByProduct, getShortageIds } from '@/utils/orderRules';
+import {
+  getCommittedByProduct,
+  getShortageIds,
+} from '@/utils/orderRules';
 
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-
 import { AdminMobileNav } from '@/components/admin/AdminMobileNav';
 
 import { AdminDashboardView } from '@/views/admin/AdminDashboardView';
-
 import { AdminOrdersView } from '@/views/admin/AdminOrdersView';
-
 import { AdminMenuView } from '@/views/admin/AdminMenuView';
-
 import { AdminProductsView } from '@/views/admin/AdminProductsView';
-
+import { AdminStockView } from '@/views/admin/AdminStockView';
 import { AdminVotesView } from '@/views/admin/AdminVotesView';
-
 import { AdminUsersView } from '@/views/admin/AdminUsersView';
 
-const TITLES: Record<AdminView, string> = {
+type PanelRole = Extract<
+  User['role'],
+  'admin' | 'worker'
+>;
+
+type PanelUser = Pick<
+  User,
+  'id' | 'username' | 'name'
+>;
+
+const TITLES: Record<
+  AdminView,
+  string
+> = {
   dashboard: 'Dashboard',
   orders: 'Pedidos',
   menu: 'Menú semanal',
-  products: 'Productos de cafetería',
+  products:
+    'Productos de cafetería',
+  stock: 'Inventario',
   votes: 'Votaciones',
-  users: 'Usuarios y permisos',
+  users:
+    'Usuarios y permisos',
 };
 
-// Secciones que solo puede ver el rol admin. El resto (dashboard, orders,
-// menu, products) lo comparten admin y worker.
-const ADMIN_ONLY_VIEWS: AdminView[] = ['votes', 'users'];
+const VIEWS_BY_ROLE: Record<
+  PanelRole,
+  readonly AdminView[]
+> = {
+  admin: [
+    'dashboard',
+    'orders',
+    'menu',
+    'products',
+    'stock',
+    'votes',
+    'users',
+  ],
 
-function getInitials(name: string) {
+  worker: [
+    'orders',
+    'menu',
+    'stock',
+  ],
+};
+
+type AdminLayoutProps = {
+  role: PanelRole;
+  user: PanelUser;
+
+  onLogout: () => void;
+
+  orders: Order[];
+
+  updateOrderStatus: (
+    id: string,
+    status: OrderStatus,
+  ) => void;
+
+  cancelOrder: (
+    id: string,
+    by: CancelledBy,
+    reason: string,
+  ) => void;
+
+  retireOrder: (
+    id: string,
+  ) => void;
+
+  removeOrderItem: (
+    orderId: string,
+    itemId: number,
+    quantity: number,
+    by: CancelledBy,
+    reason: string,
+  ) => void;
+
+  blockedUsers: BlockedUser[];
+
+  liftBlock: (
+    username: string,
+  ) => void;
+
+  menu: LunchDay[];
+
+  addMenuDay: (
+    date: string,
+  ) => void;
+
+  updateMenuDayDate: (
+    dayId: string,
+    date: string,
+  ) => void;
+
+  removeMenuDay: (
+    dayId: string,
+  ) => void;
+
+  addMenuDish: (
+    dayId: string,
+    dish: Omit<
+      Dish,
+      'id'
+    >,
+  ) => void;
+
+  updateMenuDish: (
+    dayId: string,
+    dishId: string,
+    updates: Partial<Dish>,
+  ) => void;
+
+  removeMenuDish: (
+    dayId: string,
+    dishId: string,
+  ) => void;
+
+  toggleMenuDishSoldOut: (
+    dayId: string,
+    dishId: string,
+  ) => void;
+
+  resetMenu: () => void;
+
+  getReactionCounts: (
+    dayId: string,
+  ) => Record<
+    string,
+    number
+  >;
+
+  /*
+   * Products se mantiene aquí porque
+   * las reglas de pedidos de main
+   * calculan productos con stock
+   * insuficiente.
+   *
+   * AdminProductsView ya administra
+   * productos mediante su propia API.
+   */
+  products: Product[];
+
+  poll: VotePoll | null;
+
+  pollHistory: VotePoll[];
+
+  isPollOpen: boolean;
+
+  createPoll: (
+    question: string,
+    options: string[],
+    start: string,
+    end: string,
+  ) => void;
+
+  closePoll: () => void;
+
+  reopenPoll: () => void;
+
+  deletePoll: () => void;
+};
+
+function getInitials(
+  name: string,
+): string {
   return name
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
+    .map(
+      (part) =>
+        part[0]
+          ?.toUpperCase() ??
+        '',
+    )
     .join('');
 }
 
-function roleLabel(role: User['role']) {
-  return role === 'worker' ? 'Colaborador' : 'Administrador';
+function roleLabel(
+  role: PanelRole,
+): string {
+  return role === 'admin'
+    ? 'Administrador'
+    : 'Personal Casino';
 }
 
 export function AdminLayout({
+  role,
   user,
   onLogout,
+
   orders,
   updateOrderStatus,
   cancelOrder,
@@ -73,6 +231,7 @@ export function AdminLayout({
   removeOrderItem,
   blockedUsers,
   liftBlock,
+
   menu,
   addMenuDay,
   updateMenuDayDate,
@@ -83,11 +242,9 @@ export function AdminLayout({
   toggleMenuDishSoldOut,
   resetMenu,
   getReactionCounts,
+
   products,
-  addProduct,
-  updateProduct,
-  removeProduct,
-  resetProducts,
+
   poll,
   pollHistory,
   isPollOpen,
@@ -95,77 +252,72 @@ export function AdminLayout({
   closePoll,
   reopenPoll,
   deletePoll,
-}: {
-  user: User;
-  onLogout: () => void;
-  orders: Order[];
-  updateOrderStatus: (id: string, status: OrderStatus) => void;
-  cancelOrder: (id: string, by: CancelledBy, reason: string) => void;
-  retireOrder: (id: string) => void;
-  removeOrderItem: (
-    orderId: string,
-    itemId: number,
-    quantity: number,
-    by: CancelledBy,
-    reason: string
-  ) => void;
-  blockedUsers: BlockedUser[];
-  liftBlock: (username: string) => void;
-  menu: LunchDay[];
-  addMenuDay: (date: string) => void;
-  updateMenuDayDate: (dayId: string, date: string) => void;
-  removeMenuDay: (dayId: string) => void;
-  addMenuDish: (dayId: string, dish: Omit<Dish, 'id'>) => void;
-  updateMenuDish: (
-    dayId: string,
-    dishId: string,
-    updates: Partial<Dish>
-  ) => void;
-  removeMenuDish: (dayId: string, dishId: string) => void;
-  toggleMenuDishSoldOut: (dayId: string, dishId: string) => void;
-  resetMenu: () => void;
-  getReactionCounts: (dayId: string) => Record<string, number>;
-  products: Product[];
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  updateProduct: (id: number, updates: Partial<Product>) => void;
-  removeProduct: (id: number) => void;
-  resetProducts: () => void;
-  poll: VotePoll | null;
-  pollHistory: VotePoll[];
-  isPollOpen: boolean;
-  createPoll: (
-    question: string,
-    options: string[],
-    start: string,
-    end: string
-  ) => void;
-  closePoll: () => void;
-  reopenPoll: () => void;
-  deletePoll: () => void;
-}) {
-  const [adminView, setAdminView] = useState<AdminView>('dashboard');
+}: AdminLayoutProps) {
+  /*
+   * Admin inicia en Dashboard.
+   * Worker inicia directamente
+   * en Pedidos.
+   */
+  const [
+    adminView,
+    setAdminView,
+  ] =
+    useState<AdminView>(
+      role === 'admin'
+        ? 'dashboard'
+        : 'orders',
+    );
 
-  const canSeeView = (view: AdminView) =>
-    user.role === 'admin' || !ADMIN_ONLY_VIEWS.includes(view);
+  const allowedViews =
+    VIEWS_BY_ROLE[role];
 
-  // Si el rol cambia (o alguien queda en una sección que ya no le corresponde),
-  // lo devuelve al dashboard en vez de dejarlo en una vista restringida.
-  useEffect(() => {
-    if (!canSeeView(adminView)) {
-      setAdminView('dashboard');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.role, adminView]);
+  /*
+   * Defensa adicional de UI:
+   *
+   * aunque se intente establecer
+   * manualmente una vista que no
+   * corresponde al rol, no se
+   * renderizará.
+   *
+   * La autorización definitiva
+   * sigue estando en el backend.
+   */
+  const currentView =
+    allowedViews.includes(
+      adminView,
+    )
+      ? adminView
+      : role === 'admin'
+        ? 'dashboard'
+        : 'orders';
 
-  // Unidades de cada producto que están en pedidos aún sin retirar
-  const committedByProduct = getCommittedByProduct(orders);
+  /*
+   * Funcionalidad incorporada desde
+   * main para detectar unidades
+   * comprometidas en pedidos todavía
+   * no retirados.
+   */
+  const committedByProduct =
+    getCommittedByProduct(
+      orders,
+    );
+
+  const shortageProductIds =
+    getShortageIds(
+      products,
+      committedByProduct,
+    );
 
   return (
     <div className="flex min-h-screen bg-[#f8edef]">
       <AdminSidebar
-        adminView={adminView}
-        setAdminView={setAdminView}
-        role={user.role}
+        role={role}
+        adminView={
+          currentView
+        }
+        setAdminView={
+          setAdminView
+        }
         onExit={onLogout}
       />
 
@@ -173,13 +325,18 @@ export function AdminLayout({
         <header className="flex items-center justify-between border-b border-black/5 bg-white px-5 py-5 sm:px-8 lg:px-10">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
-              {user.role === 'worker'
-                ? 'Panel de colaborador'
-                : 'Panel administrativo'}
+              {role ===
+              'admin'
+                ? 'Panel administrativo'
+                : 'Panel operativo'}
             </p>
 
             <h1 className="mt-1 text-xl font-semibold tracking-tight">
-              {TITLES[adminView]}
+              {
+                TITLES[
+                  currentView
+                ]
+              }
             </h1>
           </div>
 
@@ -189,100 +346,189 @@ export function AdminLayout({
                 <p className="text-sm font-medium leading-tight text-black/80">
                   {user.name}
                 </p>
+
                 <p className="text-xs leading-tight text-black/40">
-                  {roleLabel(user.role)}
+                  {roleLabel(
+                    role,
+                  )}
                 </p>
               </div>
 
               <div className="grid h-10 w-10 place-items-center rounded-full bg-[#4e0611] text-sm font-semibold text-white">
-                {getInitials(user.name)}
+                {getInitials(
+                  user.name,
+                )}
               </div>
             </div>
 
             <button
-              onClick={onLogout}
+              type="button"
+              onClick={
+                onLogout
+              }
               title="Cerrar sesión"
+              aria-label="Cerrar sesión"
               className="grid h-10 w-10 place-items-center rounded-full bg-[#f8edef] text-black/45 transition hover:text-[#4e0611] lg:hidden"
             >
-              <LogOut size={17} />
+              <LogOut
+                size={17}
+              />
             </button>
           </div>
         </header>
 
         <div className="p-5 sm:p-8 lg:p-10">
-          {adminView === 'dashboard' && (
-            <AdminDashboardView
-              menu={menu}
-              getReactionCounts={getReactionCounts}
-              poll={poll}
-              isPollOpen={isPollOpen}
-              pollHistory={pollHistory}
-              orders={orders}
-              adminName={user.name}
-            />
-          )}
+          {role ===
+            'admin' &&
+            currentView ===
+              'dashboard' && (
+              <AdminDashboardView
+                menu={
+                  menu
+                }
+                getReactionCounts={
+                  getReactionCounts
+                }
+                poll={
+                  poll
+                }
+                isPollOpen={
+                  isPollOpen
+                }
+                pollHistory={
+                  pollHistory
+                }
+                orders={
+                  orders
+                }
+                adminName={
+                  user.name
+                }
+              />
+            )}
 
-          {adminView === 'orders' && (
+          {currentView ===
+            'orders' && (
             <AdminOrdersView
-              orders={orders}
-              updateStatus={updateOrderStatus}
-              cancelOrder={cancelOrder}
-              retireOrder={retireOrder}
-              removeOrderItem={removeOrderItem}
-              shortageProductIds={getShortageIds(products, committedByProduct)}
-              blockedUsers={blockedUsers}
-              liftBlock={liftBlock}
+              orders={
+                orders
+              }
+              updateStatus={
+                updateOrderStatus
+              }
+              cancelOrder={
+                cancelOrder
+              }
+              retireOrder={
+                retireOrder
+              }
+              removeOrderItem={
+                removeOrderItem
+              }
+              shortageProductIds={
+                shortageProductIds
+              }
+              blockedUsers={
+                blockedUsers
+              }
+              liftBlock={
+                liftBlock
+              }
             />
           )}
 
-          {adminView === 'menu' && (
+          {currentView ===
+            'menu' && (
             <AdminMenuView
               menu={menu}
-              addDay={addMenuDay}
-              updateDayDate={updateMenuDayDate}
-              removeDay={removeMenuDay}
-              addDish={addMenuDish}
-              updateDish={updateMenuDish}
-              removeDish={removeMenuDish}
-              toggleSoldOut={toggleMenuDishSoldOut}
-              resetMenu={resetMenu}
-              getReactionCounts={getReactionCounts}
+              addDay={
+                addMenuDay
+              }
+              updateDayDate={
+                updateMenuDayDate
+              }
+              removeDay={
+                removeMenuDay
+              }
+              addDish={
+                addMenuDish
+              }
+              updateDish={
+                updateMenuDish
+              }
+              removeDish={
+                removeMenuDish
+              }
+              toggleSoldOut={
+                toggleMenuDishSoldOut
+              }
+              resetMenu={
+                resetMenu
+              }
+              getReactionCounts={
+                getReactionCounts
+              }
             />
           )}
 
-          {adminView === 'products' && (
-            <AdminProductsView
-              products={products}
-              committedByProduct={committedByProduct}
-              addProduct={addProduct}
-              updateProduct={updateProduct}
-              removeProduct={removeProduct}
-              resetProducts={resetProducts}
-            />
+          {role ===
+            'admin' &&
+            currentView ===
+              'products' && (
+              <AdminProductsView />
+            )}
+
+          {currentView ===
+            'stock' && (
+            <AdminStockView />
           )}
 
-          {adminView === 'votes' && user.role === 'admin' && (
-            <AdminVotesView
-              poll={poll}
-              pollHistory={pollHistory} 
-              isOpen={isPollOpen}
-              createPoll={createPoll}
-              closePoll={closePoll}
-              reopenPoll={reopenPoll}
-              deletePoll={deletePoll}
-            />
-          )}
+          {role ===
+            'admin' &&
+            currentView ===
+              'votes' && (
+              <AdminVotesView
+                poll={
+                  poll
+                }
+                pollHistory={
+                  pollHistory
+                }
+                isOpen={
+                  isPollOpen
+                }
+                createPoll={
+                  createPoll
+                }
+                closePoll={
+                  closePoll
+                }
+                reopenPoll={
+                  reopenPoll
+                }
+                deletePoll={
+                  deletePoll
+                }
+              />
+            )}
 
-          {adminView === 'users' && user.role === 'admin' && (
-            <AdminUsersView orders={orders} />
-          )}
+          {role ===
+            'admin' &&
+            currentView ===
+              'users' && (
+              <AdminUsersView />
+            )}
         </div>
       </div>
 
       <AdminMobileNav
-        adminView={adminView}
-        setAdminView={setAdminView}
-        role={user.role}
+        role={role}
+        adminView={
+          currentView
+        }
+        setAdminView={
+          setAdminView
+        }
       />
     </div>
   );

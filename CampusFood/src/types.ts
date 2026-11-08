@@ -1,13 +1,38 @@
-export type { Dish, LunchDay, Product } from '@/data';
+export type {
+  Dish,
+  LunchDay,
+  Product,
+} from '@/data';
 
-export type View = 'home' | 'menu' | 'orders' | 'profile';
+export type View =
+  | 'home'
+  | 'menu'
+  | 'orders'
+  | 'profile';
 
-export type AdminView = 'dashboard' | 'menu' | 'products' | 'orders' | 'votes' | 'users';
+export type AdminView =
+  | 'dashboard'
+  | 'orders'
+  | 'menu'
+  | 'products'
+  | 'stock'
+  | 'votes'
+  | 'users';
 
-export type OrderStatus = 'pendiente' | 'listo' | 'retirado' | 'cancelado';
+export type OrderStatus =
+  | 'pendiente'
+  | 'listo'
+  | 'retirado'
+  | 'cancelado';
 
-// Quién canceló o modificó el pedido: el propio cliente o el personal del casino
-export type CancelledBy = 'cliente' | 'personal';
+/*
+ * Indica quién realizó una
+ * cancelación o modificación
+ * sobre un pedido.
+ */
+export type CancelledBy =
+  | 'cliente'
+  | 'personal';
 
 export type OrderItem = {
   id: number;
@@ -16,7 +41,10 @@ export type OrderItem = {
   quantity: number;
 };
 
-// Registro de cada producto que se quitó de un pedido pendiente
+/*
+ * Registro de productos retirados
+ * de un pedido pendiente.
+ */
 export type OrderAdjustment = {
   at: string;
   by: CancelledBy;
@@ -33,10 +61,30 @@ export type Order = {
   subtotal: number;
   status: OrderStatus;
   createdAt: string;
+
   cancelledAt?: string;
   cancelledBy?: CancelledBy;
   cancelReason?: string;
+
   retiredAt?: string;
   retiredBy?: string;
+
   adjustments?: OrderAdjustment[];
+
+  // Pago presencial registrado al retirar.
+  payment?: {
+    amount: number;
+    method: string;
+    at: string;
+  };
+};
+
+export type OrderNotification = {
+  id: string;
+  // Código de retiro del pedido al que se refiere el aviso.
+  orderId: string;
+  kind: 'ready' | 'cancelled' | 'adjusted';
+  message: string;
+  read: boolean;
+  createdAt: string;
 };

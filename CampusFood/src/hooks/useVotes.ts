@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export type VoteOption = {
   id: string;
@@ -13,122 +13,168 @@ export type VotePoll = {
   startDate: string;
   endDate: string;
   active: boolean;
+  // Vigente hoy según la hora de Chile (lo calcula el servidor).
+  open?: boolean;
 };
 
-const POLL_KEY = 'campusfood_poll';
-const HISTORY_KEY = 'campusfood_poll_history';
-const VOTES_LOG_KEY = 'campusfood_votes_log';
+const POLL_INTERVAL_MS = 20000;
 
-type VotesLog = Record<string, Record<string, string>>;
+type PollsResponse = {
+  poll?: VotePoll | null;
+  history?: VotePoll[];
+  myVotes?: Record<string, string>;
+  error?: string;
+};
 
-function loadPoll(): VotePoll | null {
+type PollsState = {
+  owner: string | null;
+  poll: VotePoll | null;
+  history: VotePoll[];
+  myVotes: Record<string, string>;
+};
+
+async function requestPolls(url: string, init?: RequestInit): Promise<PollsResponse> {
+  const response = await fetch(url, {
+    cache: 'no-store',
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  });
+
+  let data: PollsResponse = {};
+
   try {
-    const raw = localStorage.getItem(POLL_KEY);
-    return raw ? JSON.parse(raw) : null;
+    data = (await response.json()) as PollsResponse;
   } catch {
-    return null;
+    data = {};
   }
-}
 
-function loadHistory(): VotePoll[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No fue posible completar la operación.');
   }
+
+  return data;
 }
 
-function loadVotesLog(): VotesLog {
-  try {
-    const raw = localStorage.getItem(VOTES_LOG_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
+/**
+ * Encuestas guardadas en la base de datos. Los votos se cuentan en el servidor y
+ * un usuario solo puede votar una vez por encuesta.
+ */
+export function useVotes(userId: string | null) {
+  const [state, setState] = useState<PollsState>({
+    owner: null,
+    poll: null,
+    history: [],
+    myVotes: {},
+  });
+  const [error, setError] = useState<string | null>(null);
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
+  const current = state.owner === userId ? state : { poll: null, history: [], myVotes: {} };
+  const poll = current.poll;
 
-export function useVotes(username: string | null) {
-  const [poll, setPoll] = useState<VotePoll | null>(() => loadPoll());
-  const [history, setHistory] = useState<VotePoll[]>(() => loadHistory());
-  const [votesLog, setVotesLog] = useState<VotesLog>(() => loadVotesLog());
+  const apply = useCallback(
+    (data: PollsResponse) => {
+      if (!userId) {
+        return;
+      }
 
-  useEffect(() => {
-    if (poll) {
-      localStorage.setItem(POLL_KEY, JSON.stringify(poll));
-    } else {
-      localStorage.removeItem(POLL_KEY);
-    }
-  }, [poll]);
-
-  useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-  }, [history]);
-
-  useEffect(() => {
-    localStorage.setItem(VOTES_LOG_KEY, JSON.stringify(votesLog));
-  }, [votesLog]);
-
-  const isOpen = Boolean(
-    poll && poll.active && poll.startDate <= todayISO() && todayISO() <= poll.endDate
+      setState({
+        owner: userId,
+        poll: data.poll ?? null,
+        history: data.history ?? [],
+        myVotes: data.myVotes ?? {},
+      });
+    },
+    [userId]
   );
 
-  const hasVoted = Boolean(poll && username && votesLog[poll.id]?.[username]);
-
-  const createPoll = (question: string, optionLabels: string[], startDate: string, endDate: string) => {
-    // La encuesta anterior (si tenía votos) queda guardada en el historial antes de reemplazarla
-    if (poll) {
-      setHistory((current) => [...current, poll]);
+  const refresh = useCallback(async () => {
+    if (!userId) {
+      return;
     }
 
-    const newPoll: VotePoll = {
-      id: `poll-${Date.now()}`,
-      question,
-      options: optionLabels.map((label, index) => ({ id: `opt-${index}-${Date.now()}`, label, votes: 0 })),
-      startDate,
-      endDate,
-      active: true,
+    try {
+      apply(await requestPolls('/api/polls'));
+    } catch (requestError) {
+      console.error('No se pudieron cargar las encuestas:', requestError);
+    }
+  }, [userId, apply]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const first = setTimeout(() => void refresh(), 0);
+    const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
     };
-    setPoll(newPoll);
-  };
+  }, [userId, refresh]);
 
-  const closePoll = () => {
-    setPoll((current) => (current ? { ...current, active: false } : current));
-  };
+  const run = async (url: string, init: RequestInit) => {
+    try {
+      apply(await requestPolls(url, init));
+      setError(null);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'No fue posible completar la operación.'
+      );
 
-  const reopenPoll = () => {
-    setPoll((current) => (current ? { ...current, active: true } : current));
-  };
-
-  const deletePoll = () => {
-    if (poll) {
-      setHistory((current) => [...current, poll]);
+      await refresh();
     }
-    setPoll(null);
   };
 
-  const castVote = (optionId: string) => {
-    if (!poll || !username || hasVoted) return;
+  const isOpen = Boolean(poll?.open);
 
-    setPoll((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        options: current.options.map((option) =>
-          option.id === optionId ? { ...option, votes: option.votes + 1 } : option
-        ),
-      };
+  const hasVoted = Boolean(poll && current.myVotes[poll.id]);
+
+  const createPoll = (
+    question: string,
+    optionLabels: string[],
+    startDate: string,
+    endDate: string
+  ) =>
+    run('/api/polls', {
+      method: 'POST',
+      body: JSON.stringify({ question, options: optionLabels, startDate, endDate }),
     });
 
-    setVotesLog((current) => ({
-      ...current,
-      [poll.id]: { ...(current[poll.id] ?? {}), [username]: optionId },
-    }));
+  const changeState = (action: 'close' | 'reopen' | 'archive') =>
+    poll
+      ? run(`/api/polls/${poll.id}`, { method: 'PATCH', body: JSON.stringify({ action }) })
+      : Promise.resolve();
+
+  const closePoll = () => changeState('close');
+  const reopenPoll = () => changeState('reopen');
+  // La encuesta vigente pasa al historial (no se borra: conserva sus votos).
+  const deletePoll = () => changeState('archive');
+
+  const castVote = (optionId: string) => {
+    if (!poll || hasVoted) {
+      return Promise.resolve();
+    }
+
+    return run(`/api/polls/${poll.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'vote', optionId }),
+    });
   };
 
-  return { poll, history, isOpen, hasVoted, createPoll, closePoll, reopenPoll, deletePoll, castVote };
+  return {
+    poll,
+    history: current.history,
+    isOpen,
+    hasVoted,
+    error,
+    clearError: () => setError(null),
+    createPoll,
+    closePoll,
+    reopenPoll,
+    deletePoll,
+    castVote,
+  };
 }

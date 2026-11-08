@@ -672,7 +672,7 @@ export function AdminMenuView({
             className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 py-2 text-xs font-medium text-black/45 transition hover:bg-[#f8edef] hover:text-[#4e0611]"
           >
             <RotateCcw size={13} />
-            Restaurar
+            Actualizar
           </button>
 
           <button

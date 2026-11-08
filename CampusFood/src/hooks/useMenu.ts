@@ -1,161 +1,188 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Dish, LunchDay } from '@/data';
 
-import { lunchDays as defaultLunchDays } from '@/data';
+const POLL_INTERVAL_MS = 30000;
 
-const STORAGE_KEY = 'campusfood_menu';
+type MenuResponse = { days?: LunchDay[]; error?: string };
 
-function normalizeMenu(days: LunchDay[]): LunchDay[] {
-  return days.map((day) => ({
-    ...day,
-    dishes: Array.isArray(day.dishes) ? day.dishes : [],
-  }));
-}
+async function requestMenu(init?: RequestInit): Promise<LunchDay[]> {
+  const response = await fetch('/api/menu', {
+    cache: 'no-store',
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  });
 
-function loadMenu(): LunchDay[] {
+  let data: MenuResponse = {};
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-
-    if (!raw) {
-      return normalizeMenu(defaultLunchDays);
-    }
-
-    const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) {
-      return normalizeMenu(defaultLunchDays);
-    }
-
-    return normalizeMenu(parsed);
+    data = (await response.json()) as MenuResponse;
   } catch {
-    return normalizeMenu(defaultLunchDays);
+    data = {};
   }
+
+  if (!response.ok || !data.days) {
+    throw new Error(data.error ?? 'No fue posible actualizar el menú.');
+  }
+
+  return data.days;
 }
+
+const dayDate = (dayId: string) => dayId.replace(/^day-/, '');
 
 function sortByDate(days: LunchDay[]) {
   return [...days].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export function useMenu() {
-  const [menu, setMenu] = useState<LunchDay[]>(() =>
-    sortByDate(loadMenu())
+/**
+ * Menú semanal guardado en la base de datos. Un día solo existe en el servidor
+ * mientras tenga platos; un día recién agregado y vacío vive en pantalla hasta
+ * que se le agrega el primer plato.
+ */
+export function useMenu(userId: string | null) {
+  const [loaded, setLoaded] = useState<{ owner: string | null; days: LunchDay[] }>({
+    owner: null,
+    days: [],
+  });
+  const [emptyDates, setEmptyDates] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const serverDays = useMemo(
+    () => (loaded.owner === userId ? loaded.days : []),
+    [loaded, userId]
   );
 
+  const refresh = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+
+    try {
+      const days = await requestMenu();
+
+      setLoaded({ owner: userId, days });
+    } catch (requestError) {
+      console.error('No se pudo cargar el menú:', requestError);
+    }
+  }, [userId]);
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(menu));
-  }, [menu]);
+    if (!userId) {
+      return;
+    }
+
+    const first = setTimeout(() => void refresh(), 0);
+    const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
+  }, [userId, refresh]);
+
+  const menu = useMemo(() => {
+    const known = new Set(serverDays.map((day) => day.date));
+    const extra = emptyDates
+      .filter((date) => !known.has(date))
+      .map((date): LunchDay => ({ id: `day-${date}`, date, dishes: [] }));
+
+    return sortByDate([...serverDays, ...extra]);
+  }, [serverDays, emptyDates]);
+
+  // Aplica un cambio en el servidor y muestra el error si falla.
+  const mutate = async (body: Record<string, unknown>) => {
+    try {
+      const days = await requestMenu({ method: 'POST', body: JSON.stringify(body) });
+
+      if (userId) {
+        setLoaded({ owner: userId, days });
+      }
+
+      setError(null);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'No fue posible actualizar el menú.'
+      );
+    }
+  };
 
   // --- Días ---
 
   const addDay = (date: string) => {
-    const newDay: LunchDay = {
-      id: `day-${Date.now()}`,
-      date,
-      dishes: [],
-    };
-
-    setMenu((current) => sortByDate([...current, newDay]));
+    setEmptyDates((current) => (current.includes(date) ? current : [...current, date]));
   };
 
-  const updateDayDate = (dayId: string, date: string) => {
-    setMenu((current) =>
-      sortByDate(
-        current.map((day) =>
-          day.id === dayId ? { ...day, date } : day
-        )
-      )
-    );
+  const updateDayDate = async (dayId: string, date: string) => {
+    const from = dayDate(dayId);
+    const hasDishes = serverDays.some((day) => day.id === dayId);
+
+    setEmptyDates((current) => current.map((value) => (value === from ? date : value)));
+
+    if (hasDishes) {
+      await mutate({ action: 'moveDay', from, to: date });
+    }
   };
 
-  const removeDay = (dayId: string) => {
-    setMenu((current) =>
-      current.filter((day) => day.id !== dayId)
-    );
+  const removeDay = async (dayId: string) => {
+    const date = dayDate(dayId);
+
+    setEmptyDates((current) => current.filter((value) => value !== date));
+
+    if (serverDays.some((day) => day.id === dayId)) {
+      await mutate({ action: 'removeDay', date });
+    }
   };
 
   // --- Platos dentro de un día ---
 
-  const addDish = (dayId: string, dish: Omit<Dish, 'id'>) => {
-    setMenu((current) =>
-      current.map((day) =>
-        day.id === dayId
-          ? {
-              ...day,
-              dishes: [
-                ...(day.dishes ?? []),
-                {
-                  ...dish,
-                  id: `dish-${Date.now()}`,
-                },
-              ],
-            }
-          : day
-      )
-    );
+  const addDish = async (dayId: string, dish: Omit<Dish, 'id'>) => {
+    await mutate({
+      action: 'addDish',
+      date: dayDate(dayId),
+      name: dish.name,
+      detail: dish.detail,
+      color: dish.color,
+      image: typeof dish.image === 'string' ? dish.image : '',
+      soldOut: dish.soldOut ?? false,
+    });
   };
 
-  const updateDish = (
-    dayId: string,
-    dishId: string,
-    updates: Partial<Dish>
-  ) => {
-    setMenu((current) =>
-      current.map((day) =>
-        day.id === dayId
-          ? {
-              ...day,
-              dishes: (day.dishes ?? []).map((dish) =>
-                dish.id === dishId
-                  ? { ...dish, ...updates }
-                  : dish
-              ),
-            }
-          : day
-      )
-    );
+  const updateDish = async (_dayId: string, dishId: string, updates: Partial<Dish>) => {
+    await mutate({
+      action: 'updateDish',
+      id: dishId,
+      name: updates.name,
+      detail: updates.detail,
+      color: updates.color,
+      image: typeof updates.image === 'string' ? updates.image : undefined,
+      soldOut: updates.soldOut,
+    });
   };
 
-  const removeDish = (dayId: string, dishId: string) => {
-    setMenu((current) =>
-      current.map((day) =>
-        day.id === dayId
-          ? {
-              ...day,
-              dishes: (day.dishes ?? []).filter(
-                (dish) => dish.id !== dishId
-              ),
-            }
-          : day
-      )
-    );
+  const removeDish = async (_dayId: string, dishId: string) => {
+    await mutate({ action: 'removeDish', id: dishId });
   };
 
-  const toggleSoldOut = (dayId: string, dishId: string) => {
-    setMenu((current) =>
-      current.map((day) =>
-        day.id === dayId
-          ? {
-              ...day,
-              dishes: (day.dishes ?? []).map((dish) =>
-                dish.id === dishId
-                  ? {
-                      ...dish,
-                      soldOut: !dish.soldOut,
-                    }
-                  : dish
-              ),
-            }
-          : day
-      )
-    );
+  const toggleSoldOut = async (dayId: string, dishId: string) => {
+    const dish = serverDays
+      .find((day) => day.id === dayId)
+      ?.dishes.find((candidate) => candidate.id === dishId);
+
+    await mutate({ action: 'updateDish', id: dishId, soldOut: !dish?.soldOut });
   };
 
-  const resetMenu = () =>
-    setMenu(sortByDate(normalizeMenu(defaultLunchDays)));
+  // "Restaurar" vuelve a cargar el menú guardado y descarta días vacíos sin guardar.
+  const resetMenu = async () => {
+    setEmptyDates([]);
+    await refresh();
+  };
 
   return {
     menu,
+    error,
+    clearError: () => setError(null),
     addDay,
     updateDayDate,
     removeDay,

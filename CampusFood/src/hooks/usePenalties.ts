@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { Order } from '@/types';
-import { computePenaltyStatus, type PenaltyStatus } from '@/utils/orderRules';
+import { useCallback, useEffect, useState } from 'react';
 
-const AMNESTY_KEY = 'campusfood_penalty_amnesty';
+import type { Order } from '@/types';
+import type { PenaltyStatus } from '@/utils/orderRules';
 
 export type BlockedUser = {
   username: string;
@@ -10,58 +9,116 @@ export type BlockedUser = {
   strikes: number;
 };
 
-function loadAmnesty(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(AMNESTY_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
+type PenaltyResponse = {
+  status?: PenaltyStatus;
+  blocked?: BlockedUser[];
+  error?: string;
+};
 
-export function usePenalties(orders: Order[]) {
-  const [amnesty, setAmnesty] = useState<Record<string, string>>(() => loadAmnesty());
+type PenaltyState = {
+  owner: string | null;
+  status: PenaltyStatus;
+  blocked: BlockedUser[];
+};
 
-  useEffect(() => {
-    localStorage.setItem(AMNESTY_KEY, JSON.stringify(amnesty));
-  }, [amnesty]);
+const POLL_INTERVAL_MS = 30000;
 
-  const getStatus = (username: string): PenaltyStatus =>
-    computePenaltyStatus(orders, username, amnesty[username]);
+const NO_PENALTY: PenaltyStatus = {
+  strikes: 0,
+  faults: [],
+  isBlocked: false,
+  blockedUntil: null,
+};
 
-  const blockedUsers = useMemo<BlockedUser[]>(() => {
-    const usernames = Array.from(
-      new Set(
-        orders
-          .map((order) => order.username)
-          .filter((username): username is string => Boolean(username))
-      )
-    );
+/**
+ * Faltas y bloqueos guardados en la base de datos. Se recalculan cuando cambian
+ * los pedidos (por ejemplo, al cancelar fuera del plazo gratuito).
+ */
+export function usePenalties(userId: string | null, orders: Order[]) {
+  const [state, setState] = useState<PenaltyState>({
+    owner: null,
+    status: NO_PENALTY,
+    blocked: [],
+  });
 
-    const blocked: BlockedUser[] = [];
+  const current = state.owner === userId ? state : { status: NO_PENALTY, blocked: [] };
 
-    for (const username of usernames) {
-      const status = computePenaltyStatus(orders, username, amnesty[username]);
-
-      if (status.isBlocked && status.blockedUntil !== null) {
-        blocked.push({
-          username,
-          until: status.blockedUntil,
-          strikes: status.strikes,
-        });
+  const apply = useCallback(
+    (data: PenaltyResponse) => {
+      if (!userId) {
+        return;
       }
+
+      setState({
+        owner: userId,
+        status: data.status ?? NO_PENALTY,
+        blocked: data.blocked ?? [],
+      });
+    },
+    [userId]
+  );
+
+  const refresh = useCallback(async () => {
+    if (!userId) {
+      return;
     }
 
-    return blocked;
-  }, [orders, amnesty]);
+    try {
+      const response = await fetch('/api/penalties', { cache: 'no-store' });
 
-  // Levanta el bloqueo y borra las faltas acumuladas hasta ahora
-  const liftBlock = (username: string) => {
-    setAmnesty((current) => ({
-      ...current,
-      [username]: new Date().toISOString(),
-    }));
+      if (response.ok) {
+        apply((await response.json()) as PenaltyResponse);
+      }
+    } catch (error) {
+      console.error('No se pudieron cargar las faltas:', error);
+    }
+  }, [userId, apply]);
+
+  // Cambia cuando algún pedido cambia de estado.
+  const ordersSignature = orders.map((order) => `${order.id}:${order.status}`).join(',');
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const timer = setTimeout(() => void refresh(), 0);
+
+    return () => clearTimeout(timer);
+  }, [userId, refresh, ordersSignature]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [userId, refresh]);
+
+  // Las faltas del usuario que inició sesión (el bloqueo lo valida también el servidor).
+  const getStatus = (): PenaltyStatus => current.status;
+
+  // Levanta el bloqueo y anula las faltas acumuladas hasta ahora.
+  const liftBlock = async (username: string) => {
+    try {
+      const response = await fetch('/api/penalties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'lift', username }),
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudo levantar el bloqueo.');
+      }
+
+      apply((await response.json()) as PenaltyResponse);
+    } catch (error) {
+      console.error(error);
+      await refresh();
+    }
   };
 
-  return { getStatus, blockedUsers, liftBlock };
+  return { getStatus, blockedUsers: current.blocked, liftBlock };
 }

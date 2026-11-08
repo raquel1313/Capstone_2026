@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { LunchDay } from '@/data';
 
 export const REACTIONS = [
@@ -12,61 +12,125 @@ export const REACTIONS = [
 export const SENTIMENT_WEIGHTS = [2, 1, -1, -2];
 
 type ReactionCounts = Record<string, number>;
-type ReactionsByDish = Record<string, ReactionCounts>; // clave: dish.id
 
-const COUNTS_KEY = 'campusfood_reactions_v2'; // v2: ahora se indexa por plato, no por día
-const USER_KEY = 'campusfood_user_reactions_v2';
+const POLL_INTERVAL_MS = 20000;
+
+type ReactionsResponse = {
+  counts?: Record<string, ReactionCounts>;
+  mine?: Record<string, string>;
+};
+
+type ReactionsState = {
+  owner: string | null;
+  counts: Record<string, ReactionCounts>;
+  mine: Record<string, string>;
+};
 
 function emptyCounts(): ReactionCounts {
   return REACTIONS.reduce((acc, r) => ({ ...acc, [r.emoji]: 0 }), {});
 }
 
-function loadCounts(): ReactionsByDish {
-  try {
-    const raw = localStorage.getItem(COUNTS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
+/**
+ * Reacciones guardadas en la base de datos: una por usuario y plato.
+ * `dishId` es el id del plato del menú (la oferta del día).
+ */
+export function useReactions(userId: string | null) {
+  const [state, setState] = useState<ReactionsState>({ owner: null, counts: {}, mine: {} });
 
-function loadUserReactions(): Record<string, string | null> {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
+  const current: Pick<ReactionsState, 'counts' | 'mine'> =
+    state.owner === userId ? state : { counts: {}, mine: {} };
 
-export function useReactions() {
-  const [countsByDish, setCountsByDish] = useState<ReactionsByDish>(() => loadCounts());
-  const [userReactions, setUserReactions] = useState<Record<string, string | null>>(() => loadUserReactions());
-
-  useEffect(() => {
-    localStorage.setItem(COUNTS_KEY, JSON.stringify(countsByDish));
-  }, [countsByDish]);
-
-  useEffect(() => {
-    localStorage.setItem(USER_KEY, JSON.stringify(userReactions));
-  }, [userReactions]);
-
-  const getCounts = (dishId: string): ReactionCounts => countsByDish[dishId] ?? emptyCounts();
-  const getUserReaction = (dishId: string): string | null => userReactions[dishId] ?? null;
-
-  const react = (dishId: string, emoji: string) => {
-    const current = getUserReaction(dishId);
-    setCountsByDish((prev) => {
-      const counts = { ...(prev[dishId] ?? emptyCounts()) };
-      if (current === emoji) {
-        counts[emoji] = Math.max(0, counts[emoji] - 1);
-      } else {
-        if (current) counts[current] = Math.max(0, counts[current] - 1);
-        counts[emoji] = counts[emoji] + 1;
+  const apply = useCallback(
+    (data: ReactionsResponse) => {
+      if (!userId) {
+        return;
       }
-      return { ...prev, [dishId]: counts };
+
+      setState({ owner: userId, counts: data.counts ?? {}, mine: data.mine ?? {} });
+    },
+    [userId]
+  );
+
+  const refresh = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/reactions', { cache: 'no-store' });
+
+      if (response.ok) {
+        apply((await response.json()) as ReactionsResponse);
+      }
+    } catch (error) {
+      console.error('No se pudieron cargar las reacciones:', error);
+    }
+  }, [userId, apply]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const first = setTimeout(() => void refresh(), 0);
+    const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
+  }, [userId, refresh]);
+
+  const getCounts = (dishId: string): ReactionCounts => ({
+    ...emptyCounts(),
+    ...(current.counts[dishId] ?? {}),
+  });
+
+  const getUserReaction = (dishId: string): string | null => current.mine[dishId] ?? null;
+
+  // Tocar la misma reacción la quita; tocar otra reemplaza la anterior.
+  const react = (dishId: string, emoji: string) => {
+    if (!userId) {
+      return;
+    }
+
+    const previous = current.mine[dishId] ?? null;
+    const next = previous === emoji ? null : emoji;
+
+    setState((existing) => {
+      const base = existing.owner === userId ? existing : { owner: userId, counts: {}, mine: {} };
+      const counts = { ...emptyCounts(), ...(base.counts[dishId] ?? {}) };
+
+      if (previous) counts[previous] = Math.max(0, (counts[previous] ?? 0) - 1);
+      if (next) counts[next] = (counts[next] ?? 0) + 1;
+
+      const mine = { ...base.mine };
+
+      if (next) {
+        mine[dishId] = next;
+      } else {
+        delete mine[dishId];
+      }
+
+      return { owner: userId, counts: { ...base.counts, [dishId]: counts }, mine };
     });
-    setUserReactions((prev) => ({ ...prev, [dishId]: current === emoji ? null : emoji }));
+
+    fetch('/api/reactions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dishId, emoji: next }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('No se pudo guardar la reacción.');
+        }
+
+        apply((await response.json()) as ReactionsResponse);
+      })
+      .catch((error) => {
+        console.error(error);
+        void refresh();
+      });
   };
 
   return { getCounts, getUserReaction, react };

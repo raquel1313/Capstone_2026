@@ -27,18 +27,15 @@ export function getCommittedByProduct(orders: Order[]): Record<number, number> {
   return committed;
 }
 
-// undefined = producto sin control de stock
 export function getAvailable(
   product: Product,
   committed: Record<number, number>
-): number | undefined {
-  if (typeof product.stock !== 'number') return undefined;
-
+): number {
   return Math.max(0, product.stock - (committed[product.id] ?? 0));
 }
 
-// Lo que ve el cliente: el producto queda agotado si lo marcaron a mano
-// o si todo su stock ya está comprometido en pedidos
+// Lo que ve el cliente: el producto queda agotado si todo su stock
+// ya está comprometido en pedidos
 export function withAvailability(
   products: Product[],
   committed: Record<number, number>
@@ -49,7 +46,7 @@ export function withAvailability(
     return {
       ...product,
       available,
-      soldOut: Boolean(product.soldOut) || available === 0,
+      soldOut: available === 0,
     };
   });
 }
@@ -64,9 +61,8 @@ export function getShortageIds(
   return products
     .filter(
       (product) =>
-        product.soldOut ||
-        (typeof product.stock === 'number' &&
-          (product.stock <= 0 || (committed[product.id] ?? 0) > product.stock))
+        product.stock <= 0 ||
+        (committed[product.id] ?? 0) > product.stock
     )
     .map((product) => product.id);
 }
@@ -115,59 +111,18 @@ export function isLateCancellation(order: Order) {
   return waited > FREE_CANCEL_MINUTES * MINUTE;
 }
 
-function startOfNextDay(iso: string) {
-  const date = new Date(iso);
-
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
-}
-
-// Una falta es: cancelar un pedido pasado el plazo gratuito, o dejar un pedido
-// en "listo" sin retirarlo hasta que termina el día. Cancelar el casino nunca cuenta.
-function getFaults(
-  orders: Order[],
-  username: string,
-  amnestyAt: string | undefined,
-  now: number
-): Fault[] {
-  const amnesty = amnestyAt ? new Date(amnestyAt).getTime() : 0;
-  const faults: Fault[] = [];
-
-  for (const order of orders) {
-    if (order.username !== username) continue;
-
-    if (isLateCancellation(order) && order.cancelledAt) {
-      faults.push({
-        orderId: order.id,
-        at: new Date(order.cancelledAt).getTime(),
-        reason: 'cancelacion_tardia',
-      });
-    }
-
-    if (order.status === 'listo') {
-      const deadline = startOfNextDay(order.createdAt);
-
-      if (deadline <= now) {
-        faults.push({ orderId: order.id, at: deadline, reason: 'no_retirado' });
-      }
-    }
-  }
-
-  return faults.filter((fault) => fault.at > amnesty).sort((a, b) => a.at - b.at);
-}
-
-export function computePenaltyStatus(
-  orders: Order[],
-  username: string,
-  amnestyAt: string | undefined,
+// Cada vez que se juntan STRIKE_LIMIT faltas dentro de la ventana, se activa
+// un bloqueo y esas faltas se "consumen" (el contador parte de cero).
+// Las faltas las guarda y entrega el servidor (tabla penalizaciones).
+export function computeStatusFromFaults(
+  allFaults: Fault[],
   now: number = Date.now()
 ): PenaltyStatus {
-  const faults = getFaults(orders, username, amnestyAt, now);
+  const faults = [...allFaults].sort((a, b) => a.at - b.at);
 
   let recent: number[] = [];
   let blockedUntil: number | null = null;
 
-  // Cada vez que se juntan STRIKE_LIMIT faltas dentro de la ventana, se activa
-  // un bloqueo y esas faltas se "consumen" (el contador parte de cero).
   for (const fault of faults) {
     recent = recent.filter((time) => fault.at - time <= STRIKE_WINDOW_DAYS * DAY);
     recent.push(fault.at);
