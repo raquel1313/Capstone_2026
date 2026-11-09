@@ -35,6 +35,38 @@ function sortByDate(days: LunchDay[]) {
 }
 
 /**
+ * Evalúa si una fecha en texto (YYYY-MM-DD o ISO) corresponde a un día hábil 
+ * (Lunes a Viernes) dentro de la semana actual.
+ */
+function isCurrentWeekDay(dateStr: string): boolean {
+  // Aseguramos el parseo seguro dividiendo YYYY-MM-DD
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length < 3) return false;
+  
+  const targetDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  targetDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0: Dom, 1: Lun, ..., 6: Sáb
+
+  // Calcular el Lunes de la semana en curso (si hoy es domingo = -6)
+  const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  // Calcular el Viernes de la semana en curso
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  friday.setHours(23, 59, 59, 999);
+
+  const day = targetDate.getDay();
+  const isWeekDay = day >= 1 && day <= 5;
+  const isInRange = targetDate >= monday && targetDate <= friday;
+
+  return isWeekDay && isInRange;
+}
+
+/**
  * Menú semanal guardado en la base de datos. Un día solo existe en el servidor
  * mientras tenga platos; un día recién agregado y vacío vive en pantalla hasta
  * que se le agrega el primer plato.
@@ -86,7 +118,10 @@ export function useMenu(userId: string | null) {
       .filter((date) => !known.has(date))
       .map((date): LunchDay => ({ id: `day-${date}`, date, dishes: [] }));
 
-    return sortByDate([...serverDays, ...extra]);
+    const allDays = sortByDate([...serverDays, ...extra]);
+
+    // Filtrar para retornar únicamente Lunes a Viernes de la semana actual
+    return allDays.filter((day) => isCurrentWeekDay(day.date));
   }, [serverDays, emptyDates]);
 
   // Aplica un cambio en el servidor y muestra el error si falla.
