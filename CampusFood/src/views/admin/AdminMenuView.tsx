@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 
 import {
@@ -14,9 +14,7 @@ import {
 } from 'lucide-react';
 
 import type { Dish, LunchDay } from '@/data';
-
 import { getDayLabel, getFullDateLabel } from '@/data';
-
 import { REACTIONS } from '@/hooks/useReactions';
 
 const COLOR_OPTIONS = [
@@ -37,6 +35,28 @@ const EMPTY_DISH_FORM = {
 };
 
 type DishFormValues = typeof EMPTY_DISH_FORM;
+
+function isCurrentWeekDay(dateStr: string): boolean {
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length < 3) return false;
+
+  const targetDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  targetDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0: Dom, 1: Lun, ..., 6: Sáb
+
+  const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  friday.setHours(23, 59, 59, 999);
+
+  const day = targetDate.getDay();
+  return day >= 1 && day <= 5 && targetDate >= monday && targetDate <= friday;
+}
 
 function ReactionMetrics({
   counts,
@@ -479,6 +499,8 @@ function DayCard({
   const [dateDraft, setDateDraft] = useState(day.date);
   const [dateError, setDateError] = useState<string | null>(null);
 
+  const isActiveWeek = isCurrentWeekDay(day.date);
+
   const handleSaveDate = () => {
     if (!dateDraft) {
       setDateError('Selecciona una fecha.');
@@ -499,7 +521,13 @@ function DayCard({
   };
 
   return (
-    <div className="min-w-0 rounded-[24px] bg-white p-4 sm:p-5">
+    <div
+      className={`min-w-0 rounded-[24px] bg-white p-4 transition-all sm:p-5 ${
+        isActiveWeek
+          ? 'ring-2 ring-[#4e0611]/30 shadow-sm'
+          : 'opacity-85 hover:opacity-100'
+      }`}
+    >
       <div className="flex items-center justify-between gap-3">
         {editingDate ? (
           <div className="min-w-0 flex-1">
@@ -551,9 +579,18 @@ function DayCard({
             onClick={() => setEditingDate(true)}
             className="min-w-0 flex-1 text-left"
           >
-            <p className="truncate text-xs font-medium uppercase tracking-wider text-black/40 transition hover:text-[#4e0611]">
-              {getFullDateLabel(day.date)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="truncate text-xs font-medium uppercase tracking-wider text-black/40 transition hover:text-[#4e0611]">
+                {getFullDateLabel(day.date)}
+              </p>
+
+              {isActiveWeek && (
+                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Activo
+                </span>
+              )}
+            </div>
 
             <p className="truncate text-sm font-semibold">
               {getDayLabel(day.date)} · {day.dishes.length}{' '}
@@ -659,11 +696,21 @@ export function AdminMenuView({
 
   const existingDates = menu.map((day) => day.date);
 
+  const sortedMenu = useMemo(() => {
+    const currentWeekDays = menu.filter((day) => isCurrentWeekDay(day.date));
+    const otherDays = menu.filter((day) => !isCurrentWeekDay(day.date));
+
+    currentWeekDays.sort((a, b) => a.date.localeCompare(b.date));
+    otherDays.sort((a, b) => b.date.localeCompare(a.date));
+
+    return [...currentWeekDays, ...otherDays];
+  }, [menu]);
+
   return (
     <div className="min-w-0">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="text-sm text-black/45">
-          Agrega días y sus platos. Marca un plato como agotado cuando se termine.
+          Agrega días y sus platos. Los días de la semana actual se muestran primero.
         </p>
 
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -697,7 +744,7 @@ export function AdminMenuView({
           />
         )}
 
-        {menu.map((day) => (
+        {sortedMenu.map((day) => (
           <DayCard
             key={day.id}
             day={day}
