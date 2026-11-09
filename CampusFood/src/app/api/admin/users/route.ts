@@ -27,9 +27,7 @@ function isStatus(value: unknown): value is Status {
 }
 
 function normalizeString(value: unknown): string {
-  return typeof value === 'string'
-    ? value.trim()
-    : '';
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function isInstitutionalEmail(email: string): boolean {
@@ -72,22 +70,17 @@ export async function GET() {
     let page = 1;
 
     while (true) {
-      const { data, error } =
-        await supabaseAdmin.auth.admin.listUsers({
-          page,
-          perPage,
-        });
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage,
+      });
 
       if (error) {
-        console.error(
-          'Supabase listUsers failed:',
-          error,
-        );
+        console.error('Supabase listUsers failed:', error);
 
         return Response.json(
           {
-            error:
-              'No fue posible obtener los usuarios de autenticación.',
+            error: 'No fue posible obtener los usuarios de autenticación.',
           },
           { status: 500 },
         );
@@ -103,16 +96,11 @@ export async function GET() {
     }
 
     const authById = new Map(
-      authUsers.map((authUser) => [
-        authUser.id,
-        authUser,
-      ]),
+      authUsers.map((authUser) => [authUser.id, authUser]),
     );
 
     const users = usuarios.map((usuario) => {
-      const roles = usuario.roles.map(
-        ({ rol }) => rol.nombre,
-      );
+      const roles = usuario.roles.map(({ rol }) => rol.nombre);
 
       let role: Role | null = null;
 
@@ -124,24 +112,18 @@ export async function GET() {
         role = 'worker';
       }
 
-      const authUser = authById.get(
-        usuario.idUsuario,
-      );
+      const authUser = authById.get(usuario.idUsuario);
 
       return {
         id: usuario.idUsuario,
         username: authUser?.email ?? '',
-        name:
-          `${usuario.nombre} ${usuario.apellido}`.trim(),
+        name: `${usuario.nombre} ${usuario.apellido}`.trim(),
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         role,
         roles,
-        status: usuario.activo
-          ? ('Activo' as const)
-          : ('Inactivo' as const),
-        fechaCreacion:
-          usuario.fechaCreacion.toISOString(),
+        status: usuario.activo ? ('Activo' as const) : ('Inactivo' as const),
+        fechaCreacion: usuario.fechaCreacion.toISOString(),
       };
     });
 
@@ -149,15 +131,11 @@ export async function GET() {
       users,
     });
   } catch (error) {
-    console.error(
-      'GET /api/admin/users failed:',
-      error,
-    );
+    console.error('GET /api/admin/users failed:', error);
 
     return Response.json(
       {
-        error:
-          'Error interno al obtener los usuarios.',
+        error: 'Error interno al obtener los usuarios.',
       },
       { status: 500 },
     );
@@ -174,39 +152,23 @@ export async function POST(request: Request) {
   let body: CreateUserBody;
 
   try {
-    body =
-      (await request.json()) as CreateUserBody;
+    body = (await request.json()) as CreateUserBody;
   } catch {
     return Response.json(
       {
-        error:
-          'El cuerpo de la solicitud no es válido.',
+        error: 'El cuerpo de la solicitud no es válido.',
       },
       { status: 400 },
     );
   }
 
-  const nombre = normalizeString(
-    body.nombre,
-  );
+  const nombre = normalizeString(body.nombre);
+  const apellido = normalizeString(body.apellido);
+  const email = normalizeString(body.email).toLowerCase();
 
-  const apellido = normalizeString(
-    body.apellido,
-  );
+  const password = typeof body.password === 'string' ? body.password : '';
 
-  const email = normalizeString(
-    body.email,
-  ).toLowerCase();
-
-  const password =
-    typeof body.password === 'string'
-      ? body.password
-      : '';
-
-  if (
-    nombre.length === 0 ||
-    nombre.length > 100
-  ) {
+  if (nombre.length === 0 || nombre.length > 100) {
     return Response.json(
       {
         error: 'El nombre no es válido.',
@@ -215,10 +177,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (
-    apellido.length === 0 ||
-    apellido.length > 100
-  ) {
+  if (apellido.length === 0 || apellido.length > 100) {
     return Response.json(
       {
         error: 'El apellido no es válido.',
@@ -234,21 +193,16 @@ export async function POST(request: Request) {
   ) {
     return Response.json(
       {
-        error:
-          'El correo debe ser institucional (@duocuc.cl).',
+        error: 'El correo debe ser institucional (@duocuc.cl).',
       },
       { status: 400 },
     );
   }
 
-  if (
-    password.length < 15 ||
-    password.length > 128
-  ) {
+  if (password.length < 15 || password.length > 128) {
     return Response.json(
       {
-        error:
-          'La contraseña debe tener entre 15 y 128 caracteres.',
+        error: 'La contraseña debe tener entre 15 y 128 caracteres.',
       },
       { status: 400 },
     );
@@ -280,35 +234,26 @@ export async function POST(request: Request) {
   const role: Role = body.role;
   const status: Status = body.status;
 
-  const {
-    data,
-    error: authError,
-  } =
-    await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        nombre,
-        apellido,
-      },
-    });
+  const { data, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      nombre,
+      apellido,
+    },
+  });
 
   if (authError) {
-    console.error(
-      'Supabase createUser failed:',
-      authError,
-    );
+    console.error('Supabase createUser failed:', authError);
 
     if (
       authError.code === 'email_exists' ||
-      authError.code ===
-        'user_already_exists'
+      authError.code === 'user_already_exists'
     ) {
       return Response.json(
         {
-          error:
-            'Ya existe un usuario con ese correo.',
+          error: 'Ya existe un usuario con ese correo.',
         },
         { status: 409 },
       );
@@ -316,8 +261,7 @@ export async function POST(request: Request) {
 
     return Response.json(
       {
-        error:
-          'No fue posible crear el usuario.',
+        error: 'No fue posible crear el usuario.',
       },
       { status: 400 },
     );
@@ -326,59 +270,55 @@ export async function POST(request: Request) {
   const userId = data.user.id;
 
   try {
-    await prisma.$transaction(
-      async (transaction) => {
-        const rol =
-          await transaction.rol.findUnique({
-            where: {
-              nombre: role,
-            },
-            select: {
-              idRol: true,
-            },
-          });
+    await prisma.$transaction(async (transaction) => {
+      const rol = await transaction.rol.findUnique({
+        where: {
+          nombre: role,
+        },
+        select: {
+          idRol: true,
+        },
+      });
 
-        if (!rol) {
-          throw new Error(
-            `El rol "${role}" no existe.`,
-          );
-        }
+      if (!rol) {
+        throw new Error(`El rol "${role}" no existe.`);
+      }
 
-        /*
-         * El trigger de auth.users ya creó
-         * public.usuarios y asignó student.
-         *
-         * Aquí dejamos el estado y rol final
-         * solicitado por el administrador.
-         */
-        await transaction.usuario.update({
-          where: {
-            idUsuario: userId,
-          },
-          data: {
-            activo: status === 'Activo',
-          },
-        });
+      /*
+       * Usamos upsert en lugar de update para asegurar
+       * que el registro se cree en Prisma si el trigger
+       * de Supabase falla o tiene un ligero retraso.
+       */
+      await transaction.usuario.upsert({
+        where: {
+          idUsuario: userId,
+        },
+        update: {
+          activo: status === 'Activo',
+        },
+        create: {
+          idUsuario: userId,
+          nombre: nombre,
+          apellido: apellido,
+          activo: status === 'Activo',
+        },
+      });
 
-        await transaction.usuarioRol.deleteMany({
-          where: {
-            idUsuario: userId,
-          },
-        });
+      await transaction.usuarioRol.deleteMany({
+        where: {
+          idUsuario: userId,
+        },
+      });
 
-        await transaction.usuarioRol.create({
-          data: {
-            idUsuario: userId,
-            idRol: rol.idRol,
-          },
-        });
-      },
-    );
+      await transaction.usuarioRol.create({
+        data: {
+          idUsuario: userId,
+          idRol: rol.idRol,
+        },
+      });
+    });
   } catch (error) {
-    console.error(
-      'Database user creation failed:',
-      error,
-    );
+    console.error('Database user creation failed:', error);
 
     /*
      * Supabase Auth y Prisma no comparten
@@ -388,22 +328,17 @@ export async function POST(request: Request) {
      * creado auth.users, eliminamos el usuario
      * de Auth como operación compensatoria.
      */
-    const { error: rollbackError } =
-      await supabaseAdmin.auth.admin.deleteUser(
-        userId,
-      );
+    const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(
+      userId,
+    );
 
     if (rollbackError) {
-      console.error(
-        'Supabase Auth rollback failed:',
-        rollbackError,
-      );
+      console.error('Supabase Auth rollback failed:', rollbackError);
     }
 
     return Response.json(
       {
-        error:
-          'No fue posible completar la creación del usuario.',
+        error: 'No fue posible completar la creación del usuario.',
       },
       { status: 500 },
     );
@@ -413,8 +348,7 @@ export async function POST(request: Request) {
     {
       user: {
         id: userId,
-        username:
-          data.user.email ?? email,
+        username: data.user.email ?? email,
         name: `${nombre} ${apellido}`,
         nombre,
         apellido,
