@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Search,
   Trash2,
   X,
 } from 'lucide-react';
@@ -693,18 +694,39 @@ export function AdminMenuView({
   getReactionCounts: (dayId: string) => Record<string, number>;
 }) {
   const [addingDay, setAddingDay] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const existingDates = menu.map((day) => day.date);
 
+  // Filtrar según el término de búsqueda (fecha, nombre de plato o detalle)
+  const filteredMenu = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return menu;
+
+    return menu.filter((day) => {
+      const matchDate = day.date.toLowerCase().includes(query);
+      const matchLabel = getFullDateLabel(day.date).toLowerCase().includes(query) ||
+                         getDayLabel(day.date).toLowerCase().includes(query);
+      const matchDish = day.dishes.some(
+        (dish) =>
+          dish.name.toLowerCase().includes(query) ||
+          dish.detail.toLowerCase().includes(query)
+      );
+
+      return matchDate || matchLabel || matchDish;
+    });
+  }, [menu, searchQuery]);
+
+  // Ordenar priorizando los días hábiles de la semana actual
   const sortedMenu = useMemo(() => {
-    const currentWeekDays = menu.filter((day) => isCurrentWeekDay(day.date));
-    const otherDays = menu.filter((day) => !isCurrentWeekDay(day.date));
+    const currentWeekDays = filteredMenu.filter((day) => isCurrentWeekDay(day.date));
+    const otherDays = filteredMenu.filter((day) => !isCurrentWeekDay(day.date));
 
     currentWeekDays.sort((a, b) => a.date.localeCompare(b.date));
     otherDays.sort((a, b) => b.date.localeCompare(a.date));
 
     return [...currentWeekDays, ...otherDays];
-  }, [menu]);
+  }, [filteredMenu]);
 
   return (
     <div className="min-w-0">
@@ -730,6 +752,32 @@ export function AdminMenuView({
             Nuevo día
           </button>
         </div>
+      </div>
+
+      {/* Buscador de menús y platos */}
+      <div className="relative mb-5">
+        <Search
+          size={16}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35"
+        />
+
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar por fecha, día o nombre de plato..."
+          className="w-full rounded-2xl border border-black/5 bg-white py-2.5 pl-10 pr-9 text-sm outline-none transition focus:border-[#4e0611]"
+        />
+
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-black/35 hover:text-black/60"
+            title="Limpiar búsqueda"
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -770,7 +818,7 @@ export function AdminMenuView({
         ))}
       </div>
 
-      {menu.length === 0 && !addingDay && (
+      {sortedMenu.length === 0 && !addingDay && (
         <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-8 text-center sm:p-14">
           <Calendar
             className="text-black/20"
@@ -778,7 +826,9 @@ export function AdminMenuView({
           />
 
           <p className="mt-4 text-sm text-black/45">
-            No hay menús cargados. Agrega el primero con el botón «Nuevo día».
+            {searchQuery
+              ? `No se encontraron menús que coincidan con "${searchQuery}".`
+              : 'No hay menús cargados. Agrega el primero con el botón «Nuevo día».'}
           </p>
         </div>
       )}
