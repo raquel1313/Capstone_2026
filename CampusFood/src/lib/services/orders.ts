@@ -5,7 +5,7 @@ import { Prisma } from '../../../generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ServiceError } from '@/lib/services/errors';
 import { createNotification } from '@/lib/services/notifications';
-import { assertNotBlocked, recordLateCancellation } from '@/lib/services/penalties';
+import { assertNotBlocked, } from '@/lib/services/penalties';
 import type { Order, OrderStatus } from '@/types';
 
 /*
@@ -513,14 +513,14 @@ async function cancelInTransaction(
   });
 
   // Cancelar fuera del plazo gratuito es una falta del cliente.
-  if (origen === 'CLIENTE') {
-    await recordLateCancellation(tx, {
-      idUsuario: order.idUsuario,
-      idPedido: order.idPedido,
-      createdAt: order.createdAt,
-      now,
-    });
-  }
+  //if (origen === 'CLIENTE') {
+  //  await recordLateCancellation(tx, {
+     // idUsuario: order.idUsuario,
+     // idPedido: order.idPedido,
+     // createdAt: order.createdAt,
+     // now,
+    //});
+  //}
 
   await tx.historialEstadoPedido.create({
     data: {

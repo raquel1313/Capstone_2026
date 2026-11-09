@@ -14,16 +14,12 @@ import type { User } from '@/hooks/useAuth';
 import { formatPrice } from '@/data';
 import {
   BLOCK_DAYS,
-  FREE_CANCEL_MINUTES,
   STRIKE_LIMIT,
   STRIKE_WINDOW_DAYS,
   faultLabel,
   formatDateTime,
-  isLateCancellation,
   type PenaltyStatus,
 } from '@/utils/orderRules';
-
-const FREE_MS = FREE_CANCEL_MINUTES * 60 * 1000;
 
 const BADGES: Record<OrderStatus, { label: string; className: string }> = {
   pendiente: { label: 'Pendiente', className: 'bg-[#f5f5f3] text-black/50' },
@@ -109,10 +105,9 @@ function PenaltyCard({ penalty }: { penalty: PenaltyStatus }) {
         </p>
       ) : (
         <p className="mt-2 text-xs leading-5 text-black/45">
-          Una falta es cancelar un pedido pasados {FREE_CANCEL_MINUTES} minutos
-          o no retirar un pedido que ya está listo. Con {STRIKE_LIMIT} faltas en{' '}
-          {STRIKE_WINDOW_DAYS} días no puedes pedir por {BLOCK_DAYS} días.
-          Quitar productos sueltos y las cancelaciones del casino no cuentan.
+          Una falta se registra únicamente si no retiras un pedido listo antes de que finalice el día. 
+          Con {STRIKE_LIMIT} faltas acumuladas en {STRIKE_WINDOW_DAYS} días no podrás realizar pedidos por {BLOCK_DAYS} días. 
+          Las cancelaciones no generan faltas.
         </p>
       )}
 
@@ -142,14 +137,10 @@ function PenaltyCard({ penalty }: { penalty: PenaltyStatus }) {
 
 function OrderRow({
   order,
-  now,
-  strikes,
   onCancel,
   onRemoveItem,
 }: {
   order: Order;
-  now: number;
-  strikes: number;
   onCancel: (id: string) => void;
   onRemoveItem: (orderId: string, itemId: number, quantity: number) => void;
 }) {
@@ -161,12 +152,7 @@ function OrderRow({
   const units = order.items.reduce((sum, item) => sum + item.quantity, 0);
   const badge = BADGES[order.status];
 
-  const ageMs = now - new Date(order.createdAt).getTime();
-  const isFree = ageMs <= FREE_MS;
-  const minutesLeft = Math.max(1, Math.ceil((FREE_MS - ageMs) / 60000));
-
   const handleRemove = (item: OrderItem, quantity: number) => {
-    // Quitar lo último equivale a cancelar el pedido: se pide confirmación
     if (order.items.length === 1 && quantity >= item.quantity) {
       setConfirming(true);
       return;
@@ -223,8 +209,7 @@ function OrderRow({
 
       {order.status === 'listo' && (
         <p className="mt-2 pl-[60px] text-xs text-[#4e0611]">
-          Retíralo hoy en el mesón. Si el día termina y sigue sin retirarse, se
-          registra una falta.
+          Retíralo hoy en el mesón. Si termina el día y no fue retirado, se registrará una falta.
         </p>
       )}
 
@@ -245,14 +230,12 @@ function OrderRow({
       )}
 
       {cancelled && (
-        <p className="mt-2 pl-[60px] text-xs text-red-700">
+        <p className="mt-2 pl-[60px] text-xs text-black/40">
           {order.cancelledBy === 'personal'
             ? `El casino canceló este pedido${
                 order.cancelReason ? `: ${order.cancelReason}` : '.'
               }`
-            : isLateCancellation(order)
-              ? 'Cancelaste este pedido pasado el plazo gratuito: contó como una falta.'
-              : 'Cancelaste este pedido a tiempo: no cuenta como falta.'}
+            : 'Pedido cancelado.'}
         </p>
       )}
 
@@ -302,8 +285,7 @@ function OrderRow({
               </ul>
 
               <p className="mt-3 text-[11px] leading-4 text-black/40">
-                Quitar productos sueltos no cuenta como falta. Si quitas todos,
-                el pedido se cancela.
+                Puedes modificar tus productos libremente. Si quitas todos, el pedido se cancelará.
               </p>
             </div>
           )}
@@ -311,9 +293,7 @@ function OrderRow({
           {confirming ? (
             <div>
               <p className="text-xs leading-5 text-black/60">
-                {isFree
-                  ? `¿Cancelar el pedido? Es gratis durante los primeros ${FREE_CANCEL_MINUTES} minutos (te quedan ${minutesLeft} min).`
-                  : `¿Cancelar el pedido? Pasados los ${FREE_CANCEL_MINUTES} minutos cuenta como una falta. Llevas ${strikes} de ${STRIKE_LIMIT}.`}
+                ¿Estás seguro de cancelar este pedido?
               </p>
 
               <div className="mt-2 flex gap-2">
@@ -376,14 +356,6 @@ export function ProfileView({
   penalty: PenaltyStatus;
 }) {
   const [confirmingLogout, setConfirmingLogout] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-
-  // Mantiene al día el tiempo que queda de plazo gratuito
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   const myOrders = orders
     .filter((order) => order.username === user.username)
@@ -470,7 +442,7 @@ export function ProfileView({
         </div>
 
         <p className="mt-2 text-xs text-black/40">
-          Mientras un pedido esté pendiente puedes quitar productos o cancelarlo.
+          Mientras un pedido esté pendiente puedes editarlo o cancelarlo libremente.
         </p>
 
         {myOrders.length === 0 ? (
@@ -483,8 +455,6 @@ export function ProfileView({
               <OrderRow
                 key={order.id}
                 order={order}
-                now={now}
-                strikes={penalty.strikes}
                 onCancel={(id) =>
                   cancelOrder(id, 'cliente', 'Solicitud del cliente')
                 }

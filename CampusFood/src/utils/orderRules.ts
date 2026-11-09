@@ -1,8 +1,7 @@
 import type { Product } from '@/data';
 import type { Order } from '@/types';
 
-// ---- Reglas de sanción: cambia estos números si quieres ajustarlas ----
-export const FREE_CANCEL_MINUTES = 5; // cancelar es gratis durante este tiempo
+// ---- Reglas de sanción ----
 export const STRIKE_LIMIT = 3; // faltas para quedar bloqueado
 export const STRIKE_WINDOW_DAYS = 7; // las faltas cuentan durante este período
 export const BLOCK_DAYS = 3; // duración del bloqueo
@@ -52,8 +51,7 @@ export function withAvailability(
 }
 
 // Faltante real, para avisar al casino: agotado a mano, sin stock físico,
-// o más pedido de lo que hay. Un producto con todo el stock comprometido
-// en pedidos que se pueden preparar NO cuenta como faltante.
+// o más pedido de lo que hay.
 export function getShortageIds(
   products: Product[],
   committed: Record<number, number>
@@ -69,7 +67,7 @@ export function getShortageIds(
 
 // ------------------------- Faltas y bloqueo -------------------------
 
-export type FaultReason = 'cancelacion_tardia' | 'no_retirado';
+export type FaultReason = 'no_retirado';
 
 export type Fault = {
   orderId: string;
@@ -85,9 +83,7 @@ export type PenaltyStatus = {
 };
 
 export function faultLabel(reason: FaultReason) {
-  return reason === 'cancelacion_tardia'
-    ? 'Cancelación fuera de plazo'
-    : 'Pedido listo sin retirar';
+  return 'Pedido no retirado al finalizar el día';
 }
 
 export function formatDateTime(ms: number) {
@@ -100,20 +96,8 @@ export function formatDateTime(ms: number) {
   });
 }
 
-export function isLateCancellation(order: Order) {
-  if (order.status !== 'cancelado' || order.cancelledBy !== 'cliente' || !order.cancelledAt) {
-    return false;
-  }
-
-  const waited =
-    new Date(order.cancelledAt).getTime() - new Date(order.createdAt).getTime();
-
-  return waited > FREE_CANCEL_MINUTES * MINUTE;
-}
-
 // Cada vez que se juntan STRIKE_LIMIT faltas dentro de la ventana, se activa
-// un bloqueo y esas faltas se "consumen" (el contador parte de cero).
-// Las faltas las guarda y entrega el servidor (tabla penalizaciones).
+// un bloqueo y esas faltas se "consumen".
 export function computeStatusFromFaults(
   allFaults: Fault[],
   now: number = Date.now()

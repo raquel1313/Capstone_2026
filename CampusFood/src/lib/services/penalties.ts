@@ -5,16 +5,15 @@ import { ServiceError } from '@/lib/services/errors';
 import {
   BLOCK_DAYS,
   computeStatusFromFaults,
-  FREE_CANCEL_MINUTES,
   type Fault,
   type PenaltyStatus,
 } from '@/utils/orderRules';
 
 /*
- * Una falta es: cancelar un pedido pasado el plazo gratuito, o dejar un pedido en
- * "listo" sin retirarlo hasta que termina el día (medianoche de Chile). Cancelar
- * el casino nunca cuenta. Con 3 faltas en 7 días el cliente queda bloqueado 3 días.
- * El bloqueo se calcula desde las faltas guardadas y se valida en el servidor.
+ * Una falta es: dejar un pedido en "listo" sin retirarlo hasta que termina el día 
+ * (medianoche de Chile). Las cancelaciones no generan faltas. Con 3 faltas en 7 días 
+ * el cliente queda bloqueado 3 días. El bloqueo se calcula desde las faltas guardadas 
+ * y se valida en el servidor.
  */
 
 type Tx = Prisma.TransactionClient;
@@ -34,33 +33,8 @@ export type PenaltyView = {
 };
 
 const REASON = {
-  CANCELACION_TARDIA: 'cancelacion_tardia',
   NO_RETIRO: 'no_retirado',
 } as const;
-
-/** Registra la falta por cancelar fuera del plazo gratuito (solo cancelaciones del cliente). */
-export async function recordLateCancellation(
-  tx: Tx,
-  input: { idUsuario: string; idPedido: number; createdAt: Date; now: Date },
-) {
-  const waitedMs = input.now.getTime() - input.createdAt.getTime();
-
-  if (waitedMs <= FREE_CANCEL_MINUTES * 60 * 1000) {
-    return;
-  }
-
-  await tx.penalizacion.createMany({
-    data: [
-      {
-        idUsuario: input.idUsuario,
-        idPedido: input.idPedido,
-        tipo: 'CANCELACION_TARDIA',
-        fechaFalta: input.now,
-      },
-    ],
-    skipDuplicates: true,
-  });
-}
 
 /**
  * Registra como falta los pedidos que quedaron "listo" sin retirar al terminar el día
@@ -98,7 +72,7 @@ function toFault(row: FaultRow): Fault {
   return {
     orderId: row.pedido.codigoRetiro,
     at: row.fechaFalta.getTime(),
-    reason: REASON[row.tipo],
+    reason: REASON.NO_RETIRO,
   };
 }
 
