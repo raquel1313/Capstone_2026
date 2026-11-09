@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Clock3 } from 'lucide-react';
 import type { LunchDay } from '@/data';
 import Image from 'next/image';
@@ -11,6 +11,34 @@ const GRID_BG = {
     'linear-gradient(rgba(78,6,17,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(78,6,17,0.2) 1px, transparent 1px)',
   backgroundSize: '84px 84px',
 };
+
+/**
+ * Valida si una fecha (YYYY-MM-DD o ISO) cae dentro de los 5 días hábiles
+ * (Lunes a Viernes) de la semana activa.
+ */
+function isCurrentWeekDay(dateStr: string): boolean {
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length < 3) return false;
+
+  const targetDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  targetDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0: Dom, 1: Lun, ..., 6: Sáb
+
+  // Lunes de esta semana
+  const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  // Viernes de esta semana
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  friday.setHours(23, 59, 59, 999);
+
+  const day = targetDate.getDay();
+  return day >= 1 && day <= 5 && targetDate >= monday && targetDate <= friday;
+}
 
 export function MenuView({
   lunchDays,
@@ -26,14 +54,20 @@ export function MenuView({
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedDishId, setSelectedDishId] = useState<string | null>(null);
 
-  const day = lunchDays[Math.min(selectedDay, Math.max(lunchDays.length - 1, 0))];
+  // Filtrar exclusivamente Lunes a Viernes de la semana actual para la interfaz del alumno
+  const visibleDays = useMemo(
+    () => lunchDays.filter((d) => isCurrentWeekDay(d.date)),
+    [lunchDays]
+  );
+
+  const day = visibleDays[Math.min(selectedDay, Math.max(visibleDays.length - 1, 0))];
 
   const firstAvailableDish =
-  day?.dishes.find((dish) => !dish.soldOut) ??
-  day?.dishes[0] ??
-  null;
+    day?.dishes.find((dish) => !dish.soldOut) ??
+    day?.dishes[0] ??
+    null;
 
-  if (lunchDays.length === 0 || !day) {
+  if (visibleDays.length === 0 || !day) {
     return (
       <div className="mx-auto max-w-5xl pb-5">
         <p className="text-sm text-black/45">Aún no hay menús cargados para esta semana.</p>
@@ -42,8 +76,8 @@ export function MenuView({
   }
 
   const dish =
-  day.dishes.find((d) => d.id === selectedDishId) ??
-  firstAvailableDish;
+    day.dishes.find((d) => d.id === selectedDishId) ??
+    firstAvailableDish;
 
   const dishCounts = dish ? getReactionCounts(dish.id) : {};
   const currentReaction = dish ? getUserReaction(dish.id) : null;
@@ -66,7 +100,7 @@ export function MenuView({
         </div>
 
         <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(72px,1fr))] gap-1">
-          {lunchDays.map((d, index) => {
+          {visibleDays.map((d, index) => {
             const active = index === selectedDay;
             const allSoldOut = d.dishes.length > 0 && d.dishes.every((dish) => dish.soldOut);
             return (
