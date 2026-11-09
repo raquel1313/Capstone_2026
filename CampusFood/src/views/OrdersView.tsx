@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Image from 'next/image';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Clock } from 'lucide-react';
 
 import {
   formatPrice,
@@ -21,6 +21,10 @@ export function OrdersView({
   setCategory,
 }: OrdersViewProps) {
   const [query, setQuery] = useState('');
+
+  // 1. Validación de horario comercial (07:00 AM a 22:00 PM)
+  const horaActual = new Date().getHours();
+  const isOpen = horaActual >= 7 && horaActual < 22;
 
   const categories = Array.from(
     new Set(products.map((product) => product.category))
@@ -43,15 +47,14 @@ export function OrdersView({
     return matchesCategory && matchesQuery;
   });
 
-  // Disponibles primero, agotados al final. El orden es estable,
-  // así que entre productos con el mismo estado se mantiene el orden original.
+  // Disponibles primero, agotados al final.
   const sortedProducts = [...filteredProducts].sort(
     (a, b) => Number(a.soldOut ?? a.stock <= 0) - Number(b.soldOut ?? b.stock <= 0)
   );
 
   return (
     <div className="pb-5">
-      <div className="mb-8">
+      <div className="mb-6">
         <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
           Compra rápida
         </p>
@@ -64,6 +67,21 @@ export function OrdersView({
           Elige tus productos, confirma tu pedido y retíralo en el mesón.
         </p>
       </div>
+
+      {/* 2. Banner de aviso si el casino está cerrado */}
+      {!isOpen && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200/80 p-4 text-amber-900">
+          <Clock className="shrink-0 text-amber-700" size={20} />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-800">
+              Servicio fuera de horario
+            </p>
+            <p className="text-xs mt-0.5 text-amber-900/80">
+              El horario de atención es de 07:00 AM a 22:00 PM. Puedes explorar los productos, pero la opción de agregar al carrito está deshabilitada por el momento.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="relative mb-4 max-w-xl">
         <Search
@@ -120,6 +138,8 @@ export function OrdersView({
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
           {sortedProducts.map((product) => {
             const isSoldOut = product.soldOut ?? product.stock <= 0;
+            // 3. Bloqueo combinado por stock agotado O fuera de horario
+            const isButtonDisabled = isSoldOut || !isOpen;
 
             return (
               <div
@@ -171,15 +191,18 @@ export function OrdersView({
                     <button
                       type="button"
                       onClick={() => addToCart(product)}
-                      disabled={isSoldOut}
+                      disabled={isButtonDisabled}
+                      title={!isOpen ? "Casino cerrado (Horario: 07:00 a 22:00)" : undefined}
                       aria-label={
-                        isSoldOut
+                        !isOpen
+                          ? 'Servicio fuera de horario'
+                          : isSoldOut
                           ? `${product.name} agotado`
                           : `Agregar ${product.name}`
                       }
                       className={`grid h-9 w-9 place-items-center rounded-full text-white transition ${
-                        isSoldOut
-                          ? 'cursor-not-allowed bg-black/25'
+                        isButtonDisabled
+                          ? 'cursor-not-allowed bg-black/20'
                           : 'bg-[#252525] hover:bg-[#4e0611]'
                       }`}
                     >

@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Medal,
   ShoppingBag,
   Smile,
@@ -122,6 +123,37 @@ function computeTopProducts(
   );
 }
 
+type HourStat = { hour: number; count: number };
+
+function computePeakHours(
+  orders: Order[],
+  startISO: string,
+  endISO: string
+): HourStat[] {
+  // Arreglo de 24 horas inicializado en 0
+  const counts = new Array<number>(24).fill(0);
+
+  orders.forEach((order) => {
+    if (order.status === 'cancelado') return;
+
+    const created = new Date(order.createdAt);
+    const iso = toLocalISO(created);
+    if (iso < startISO || iso > endISO) return;
+
+    const hour = created.getHours();
+    
+    // Solo contabilizar pedidos dentro del rango laboral (7 a 22 h)
+    if (hour >= 7 && hour <= 22) {
+      counts[hour] += 1;
+    }
+  });
+
+  // Retornar exactamente las horas desde la 7 hasta la 22 (16 horas en total)
+  return Array.from({ length: 16 }, (_, i) => {
+    const hour = 7 + i;
+    return { hour, count: counts[hour] };
+  });
+}
 function PeriodDelta({
   current,
   previous,
@@ -291,6 +323,20 @@ export function AdminDashboardView({
     1,
     ...rankedMonthDays.map((d) => Math.abs(d.score))
   );
+
+
+    const peakHours = useMemo(
+    () => computePeakHours(orders, rangeStartISO, rangeEndISO),
+    [orders, rangeStartISO, rangeEndISO]
+  );
+
+  const peak = peakHours.reduce<HourStat | null>(
+    (best, h) => (!best || h.count > best.count ? h : best),
+    null
+  );
+  const maxPeak = Math.max(1, ...peakHours.map((h) => h.count));
+
+
 
   // Ranking histórico de platos
   const topDishes = useMemo(
@@ -701,6 +747,49 @@ export function AdminDashboardView({
               </div>
             ))}
           </div>
+        )}
+      </div>
+            {/* Horas pico de pedidos */}
+      <div className="rounded-[28px] bg-white p-6">
+        <div className="flex items-center gap-2">
+          <Clock size={16} className="text-black/40" />
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-black/50">
+            Horas pico de pedidos · {monthLabel}
+          </h3>
+        </div>
+
+        {!peak ? (
+          <p className="mt-6 text-center text-sm text-black/40">
+            No hay pedidos registrados en este período.
+          </p>
+        ) : (
+          <>
+            <p className="mt-3 text-sm text-black/60">
+              La mayor demanda es a las {peak.hour}:00 h, con {peak.count}{' '}
+              pedido{peak.count !== 1 ? 's' : ''}.
+            </p>
+            <div className="mt-5 flex h-36 items-end gap-2">
+              {peakHours.map((h) => (
+                <div
+                  key={h.hour}
+                  className="flex flex-1 flex-col items-center justify-end gap-1"
+                >
+                  <span className="text-xs font-semibold text-[#4e0611]">
+                    {h.count}
+                  </span>
+                  <div
+                    className={`w-full rounded-t-lg ${
+                      h.hour === peak.hour ? 'bg-[#4e0611]' : 'bg-[#4e0611]/40'
+                    }`}
+                    style={{
+                      height: `${Math.max(4, Math.round((h.count / maxPeak) * 100))}px`,
+                    }}
+                  />
+                  <span className="text-[11px] text-black/40">{h.hour}h</span>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
