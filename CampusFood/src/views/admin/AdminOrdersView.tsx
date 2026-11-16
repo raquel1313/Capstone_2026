@@ -532,13 +532,8 @@ export function AdminOrdersView({
 
   const pendingTotal = orders.filter((o) => o.status === 'pendiente').length;
 
-  // Los cancelados no cuentan como pedidos; el pago es al retirar, así que
-  // solo los retirados suman al total
+  // Los cancelados no cuentan como pedidos
   const activeVisible = visible.filter((o) => o.status !== 'cancelado');
-
-  const retiredTotal = visible
-    .filter((o) => o.status === 'retirado')
-    .reduce((sum, o) => sum + o.subtotal, 0);
 
   const visibleToPickUp = visible.filter(
     (o) => o.status === 'pendiente' || o.status === 'listo'
@@ -664,17 +659,10 @@ export function AdminOrdersView({
       )}
 
       {/* Resumen de lo que se está viendo */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="rounded-2xl bg-white p-4">
           <p className="text-xs text-black/40">Pedidos</p>
           <p className="mt-1 text-xl font-semibold">{activeVisible.length}</p>
-        </div>
-
-        <div className="rounded-2xl bg-white p-4">
-          <p className="text-xs text-black/40">Total retirado</p>
-          <p className="mt-1 text-xl font-semibold text-[#4e0611]">
-            {formatPrice(retiredTotal)}
-          </p>
         </div>
 
         <div className="rounded-2xl bg-white p-4">
