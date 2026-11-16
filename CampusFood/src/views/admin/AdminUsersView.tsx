@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useEffect,
   useId,
   useState,
   type ReactNode,
@@ -8,6 +9,8 @@ import {
 
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   EyeOff,
   KeyRound,
@@ -19,6 +22,7 @@ import {
   UserCheck,
   UserX,
   Users,
+  X,
 } from 'lucide-react';
 
 import {
@@ -27,6 +31,9 @@ import {
   type UpdateUserInput,
   type UserItem,
 } from '@/hooks/useUsers';
+
+// Múltiplo de 3 para que la grilla de 3 columnas quede simétrica
+const PAGE_SIZE = 21;
 
 type RoleFilter =
   | 'todos'
@@ -240,15 +247,6 @@ function UserForm({
         values.email !==
         originalEmail;
 
-      /*
-       * Al crear:
-       * correo institucional obligatorio.
-       *
-       * Al editar:
-       * un correo histórico puede
-       * mantenerse, pero cualquier correo
-       * nuevo debe ser institucional.
-       */
       if (
         (!isEditing ||
           emailChanged) &&
@@ -981,6 +979,12 @@ export function AdminUsersView() {
   ] =
     useState('');
 
+  const [
+    page,
+    setPage,
+  ] =
+    useState(1);
+
   const activeAdmins =
     users.filter(
       (user) =>
@@ -1000,11 +1004,6 @@ export function AdminUsersView() {
     activeAdmins.length ===
       1;
 
-  /*
-   * Estas reglas mejoran la UX.
-   * El backend continúa siendo
-   * la autoridad definitiva.
-   */
   const validate = (
     values: FormValues,
     current?: UserItem,
@@ -1078,6 +1077,17 @@ export function AdminUsersView() {
         );
       },
     );
+
+  // Volver a la página 1 al cambiar filtro o búsqueda
+  useEffect(() => {
+    setPage(1);
+  }, [roleFilter, search]);
+
+  // Cálculos de paginación
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedUsers = filtered.slice(startIndex, startIndex + PAGE_SIZE);
 
   const studentCount =
     users.filter(
@@ -1229,11 +1239,10 @@ export function AdminUsersView() {
 
           <button
             type="button"
-            onClick={() =>
-              setAdding(
-                true,
-              )
-            }
+            onClick={() => {
+              setAdding(true);
+              setPage(1);
+            }}
             disabled={
               adding
             }
@@ -1267,8 +1276,19 @@ export function AdminUsersView() {
             )
           }
           placeholder="Buscar por nombre o correo"
-          className="w-full rounded-full border border-black/5 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-[#4e0611]"
+          className="w-full rounded-full border border-black/5 bg-white py-3 pl-11 pr-10 text-sm outline-none focus:border-[#4e0611]"
         />
+
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            aria-label="Borrar búsqueda"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-[#4e0611]"
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
 
       {loading &&
@@ -1286,8 +1306,53 @@ export function AdminUsersView() {
         </div>
       ) : (
         <>
+          {/* Barra superior de paginación */}
+          {filtered.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+              <span>
+                Mostrando{' '}
+                <strong className="font-semibold text-black/75">
+                  {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, filtered.length)}
+                </strong>{' '}
+                de{' '}
+                <strong className="font-semibold text-black/75">
+                  {filtered.length}
+                </strong>{' '}
+                {filtered.length === 1 ? 'usuario' : 'usuarios'}
+              </span>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="mr-1">
+                    Página {currentPage} de {totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    aria-label="Página anterior"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    aria-label="Página siguiente"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {adding && (
+            {adding && currentPage === 1 && (
               <UserForm
                 initial={
                   EMPTY_FORM
@@ -1339,7 +1404,7 @@ export function AdminUsersView() {
               />
             )}
 
-            {filtered.map(
+            {paginatedUsers.map(
               (user) => (
                 <UserCard
                   key={
@@ -1413,6 +1478,49 @@ export function AdminUsersView() {
               ),
             )}
           </div>
+
+          {/* Barra inferior de paginación */}
+          {totalPages > 1 && (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+              <span>
+                Mostrando{' '}
+                <strong className="font-semibold text-black/75">
+                  {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, filtered.length)}
+                </strong>{' '}
+                de{' '}
+                <strong className="font-semibold text-black/75">
+                  {filtered.length}
+                </strong>{' '}
+                usuarios
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft size={14} />
+                  Anterior
+                </button>
+
+                <span className="px-1 font-medium text-black/70">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
 
           {filtered.length ===
             0 &&

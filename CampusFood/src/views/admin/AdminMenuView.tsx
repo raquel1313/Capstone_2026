@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 
 import {
   Calendar,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   EyeOff,
   Pencil,
@@ -17,6 +19,9 @@ import {
 import type { Dish, LunchDay } from '@/data';
 import { getDayLabel, getFullDateLabel } from '@/data';
 import { REACTIONS } from '@/hooks/useReactions';
+
+// Múltiplo de 3 para que la grilla de 3 columnas quede simétrica
+const PAGE_SIZE = 18;
 
 const COLOR_OPTIONS = [
   { label: 'Ámbar', value: 'bg-amber-100' },
@@ -36,6 +41,20 @@ const EMPTY_DISH_FORM = {
 };
 
 type DishFormValues = typeof EMPTY_DISH_FORM;
+
+function toYearMonth(dateStr: string): string {
+  return dateStr.split('T')[0].slice(0, 7);
+}
+
+function formatMonthLabel(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  if (!y || !m) return ym;
+  const label = new Date(y, m - 1, 1).toLocaleDateString('es-CL', {
+    month: 'long',
+    year: 'numeric',
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
 function isCurrentWeekDay(dateStr: string): boolean {
   const parts = dateStr.split('T')[0].split('-');
@@ -695,18 +714,36 @@ export function AdminMenuView({
 }) {
   const [addingDay, setAddingDay] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [monthFilter, setMonthFilter] = useState('todos');
+  const [page, setPage] = useState(1);
 
   const existingDates = menu.map((day) => day.date);
 
-  // Filtrar según el término de búsqueda (fecha, nombre de plato o detalle)
+  // Meses disponibles extraídos dinámicamente de los días cargados
+  const monthOptions = useMemo(() => {
+    const months = new Set<string>();
+    menu.forEach((day) => {
+      const ym = toYearMonth(day.date);
+      if (ym) months.add(ym);
+    });
+    return Array.from(months).sort((a, b) => b.localeCompare(a));
+  }, [menu]);
+
+  // Filtrar según mes y término de búsqueda (fecha, nombre de plato o detalle)
   const filteredMenu = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return menu;
 
     return menu.filter((day) => {
+      if (monthFilter !== 'todos' && toYearMonth(day.date) !== monthFilter) {
+        return false;
+      }
+
+      if (!query) return true;
+
       const matchDate = day.date.toLowerCase().includes(query);
-      const matchLabel = getFullDateLabel(day.date).toLowerCase().includes(query) ||
-                         getDayLabel(day.date).toLowerCase().includes(query);
+      const matchLabel =
+        getFullDateLabel(day.date).toLowerCase().includes(query) ||
+        getDayLabel(day.date).toLowerCase().includes(query);
       const matchDish = day.dishes.some(
         (dish) =>
           dish.name.toLowerCase().includes(query) ||
@@ -715,7 +752,7 @@ export function AdminMenuView({
 
       return matchDate || matchLabel || matchDish;
     });
-  }, [menu, searchQuery]);
+  }, [menu, monthFilter, searchQuery]);
 
   // Ordenar priorizando los días hábiles de la semana actual
   const sortedMenu = useMemo(() => {
@@ -727,6 +764,25 @@ export function AdminMenuView({
 
     return [...currentWeekDays, ...otherDays];
   }, [filteredMenu]);
+
+  // Volver a página 1 al cambiar filtro o búsqueda
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, monthFilter]);
+
+  // Cálculos de paginación
+  const totalPages = Math.max(1, Math.ceil(sortedMenu.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedMenu = sortedMenu.slice(startIndex, startIndex + PAGE_SIZE);
+
+  const hasActiveFilters = searchQuery.trim() !== '' || monthFilter !== 'todos';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setMonthFilter('todos');
+    setPage(1);
+  };
 
   return (
     <div className="min-w-0">
@@ -745,7 +801,10 @@ export function AdminMenuView({
           </button>
 
           <button
-            onClick={() => setAddingDay(true)}
+            onClick={() => {
+              setAddingDay(true);
+              setPage(1);
+            }}
             className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
           >
             <Plus size={13} />
@@ -754,34 +813,101 @@ export function AdminMenuView({
         </div>
       </div>
 
-      {/* Buscador de menús y platos */}
-      <div className="relative mb-5">
-        <Search
-          size={16}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35"
-        />
+      {/* Buscador y filtro por mes */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35"
+          />
 
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar por fecha, día o nombre de plato..."
-          className="w-full rounded-2xl border border-black/5 bg-white py-2.5 pl-10 pr-9 text-sm outline-none transition focus:border-[#4e0611]"
-        />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por fecha, día o nombre de plato..."
+            className="w-full rounded-2xl border border-black/5 bg-white py-2.5 pl-10 pr-9 text-sm outline-none transition focus:border-[#4e0611]"
+          />
 
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-black/35 hover:text-black/60"
-            title="Limpiar búsqueda"
-          >
-            <X size={15} />
-          </button>
-        )}
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-black/35 hover:text-black/60"
+              title="Limpiar búsqueda"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        <select
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+          aria-label="Filtrar menús por mes"
+          className={`rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition sm:w-52 ${
+            monthFilter !== 'todos'
+              ? 'border-[#4e0611] bg-[#4e0611] text-white'
+              : 'border-black/5 bg-white text-black/65 hover:border-[#4e0611]/40'
+          }`}
+        >
+          <option value="todos" className="bg-white text-black">
+            Todos los meses
+          </option>
+          {monthOptions.map((ym) => (
+            <option key={ym} value={ym} className="bg-white text-black">
+              {formatMonthLabel(ym)}
+            </option>
+          ))}
+        </select>
       </div>
 
+      {/* Barra superior de paginación */}
+      {sortedMenu.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+          <span>
+            Mostrando{' '}
+            <strong className="font-semibold text-black/75">
+              {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, sortedMenu.length)}
+            </strong>{' '}
+            de{' '}
+            <strong className="font-semibold text-black/75">
+              {sortedMenu.length}
+            </strong>{' '}
+            {sortedMenu.length === 1 ? 'día' : 'días'}
+          </span>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1">
+                Página {currentPage} de {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label="Página anterior"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={15} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Página siguiente"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {addingDay && (
+        {addingDay && currentPage === 1 && (
           <NewDayForm
             existingDates={existingDates}
             onSave={(date) => {
@@ -792,7 +918,7 @@ export function AdminMenuView({
           />
         )}
 
-        {sortedMenu.map((day) => (
+        {paginatedMenu.map((day) => (
           <DayCard
             key={day.id}
             day={day}
@@ -818,6 +944,49 @@ export function AdminMenuView({
         ))}
       </div>
 
+      {/* Barra inferior de paginación */}
+      {totalPages > 1 && (
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+          <span>
+            Mostrando{' '}
+            <strong className="font-semibold text-black/75">
+              {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, sortedMenu.length)}
+            </strong>{' '}
+            de{' '}
+            <strong className="font-semibold text-black/75">
+              {sortedMenu.length}
+            </strong>{' '}
+            días
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={14} />
+              Anterior
+            </button>
+
+            <span className="px-1 font-medium text-black/70">
+              {currentPage} / {totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Siguiente
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {sortedMenu.length === 0 && !addingDay && (
         <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-8 text-center sm:p-14">
           <Calendar
@@ -826,10 +995,20 @@ export function AdminMenuView({
           />
 
           <p className="mt-4 text-sm text-black/45">
-            {searchQuery
-              ? `No se encontraron menús que coincidan con "${searchQuery}".`
+            {hasActiveFilters
+              ? 'No se encontraron menús que coincidan con los filtros aplicados.'
               : 'No hay menús cargados. Agrega el primero con el botón «Nuevo día».'}
           </p>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-4 rounded-full bg-[#4e0611] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       )}
     </div>

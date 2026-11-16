@@ -1,8 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { Calendar, Check, History, Lock, Plus, RotateCcw, Trash2, Unlock, X } from 'lucide-react';
+import {
+  Calendar,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  Lock,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Unlock,
+  X,
+} from 'lucide-react';
 
 import type { VotePoll } from '@/hooks/useVotes';
+
+const HISTORY_PAGE_SIZE = 10;
 
 function CreatePollForm({
   onCreate,
@@ -328,10 +342,11 @@ function formatShort(date: string) {
   });
 }
 
-// Historial de encuestas anteriores, con filtro por rango de fechas.
+// Historial de encuestas anteriores, con filtro por rango de fechas y paginación.
 function PollHistory({ polls }: { polls: VotePoll[] }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
 
   const invalidRange = Boolean(from && to && to < from);
 
@@ -342,6 +357,17 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
     if (to && poll.startDate > to) return false;
     return true;
   });
+
+  // Volver a la página 1 al cambiar el rango de fechas
+  useEffect(() => {
+    setPage(1);
+  }, [from, to]);
+
+  // Cálculos de paginación
+  const totalPages = Math.max(1, Math.ceil(filtered.length / HISTORY_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * HISTORY_PAGE_SIZE;
+  const paginatedPolls = filtered.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
 
   return (
     <div className="mt-8">
@@ -393,8 +419,53 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
         </p>
       )}
 
+      {/* Barra superior de paginación */}
+      {filtered.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+          <span>
+            Mostrando{' '}
+            <strong className="font-semibold text-black/75">
+              {startIndex + 1}–{Math.min(startIndex + HISTORY_PAGE_SIZE, filtered.length)}
+            </strong>{' '}
+            de{' '}
+            <strong className="font-semibold text-black/75">
+              {filtered.length}
+            </strong>{' '}
+            {filtered.length === 1 ? 'encuesta' : 'encuestas'}
+          </span>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1">
+                Página {currentPage} de {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label="Página anterior"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={15} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Página siguiente"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-3 space-y-3">
-        {filtered.map((poll) => {
+        {paginatedPolls.map((poll) => {
           const total = poll.options.reduce((sum, option) => sum + option.votes, 0);
           const top = poll.options.reduce(
             (max, option) => (option.votes > max.votes ? option : max),
@@ -423,6 +494,49 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
           </div>
         )}
       </div>
+
+      {/* Barra inferior de paginación */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+          <span>
+            Mostrando{' '}
+            <strong className="font-semibold text-black/75">
+              {startIndex + 1}–{Math.min(startIndex + HISTORY_PAGE_SIZE, filtered.length)}
+            </strong>{' '}
+            de{' '}
+            <strong className="font-semibold text-black/75">
+              {filtered.length}
+            </strong>{' '}
+            encuestas
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={14} />
+              Anterior
+            </button>
+
+            <span className="px-1 font-medium text-black/70">
+              {currentPage} / {totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Siguiente
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

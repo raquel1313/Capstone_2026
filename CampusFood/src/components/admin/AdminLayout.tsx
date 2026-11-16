@@ -322,7 +322,7 @@ export function AdminLayout({
       />
 
       <div className="flex-1 pb-20 lg:pb-0">
-        <header className="flex items-center justify-between border-b border-black/5 bg-white px-5 py-5 sm:px-8 lg:px-10">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/5 bg-white/95 px-5 py-5 backdrop-blur-xs sm:px-8 lg:px-10">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
               {role ===
@@ -368,11 +368,14 @@ export function AdminLayout({
               }
               title="Cerrar sesión"
               aria-label="Cerrar sesión"
-              className="grid h-10 w-10 place-items-center rounded-full bg-[#f8edef] text-black/45 transition hover:text-[#4e0611] lg:hidden"
+              className="flex h-10 items-center gap-2 rounded-full bg-[#f8edef] px-4 text-xs font-semibold text-black/60 transition hover:bg-red-50 hover:text-red-700"
             >
               <LogOut
-                size={17}
+                size={16}
               />
+              <span className="hidden sm:inline">
+                Cerrar sesión
+              </span>
             </button>
           </div>
         </header>

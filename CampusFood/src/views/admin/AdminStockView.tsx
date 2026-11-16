@@ -11,12 +11,17 @@ import {
   AlertTriangle,
   Boxes,
   Check,
+  ChevronLeft,
+  ChevronRight,
   PackageCheck,
   PackageX,
   RefreshCw,
   Save,
   Search,
+  X,
 } from 'lucide-react';
+
+const PAGE_SIZE = 20;
 
 type StockProduct = {
   id: number;
@@ -149,6 +154,11 @@ export function AdminStockView() {
     setSearch,
   ] = useState('');
 
+  const [
+    page,
+    setPage,
+  ] = useState(1);
+
   const loadStock =
     useCallback(
       async (
@@ -241,6 +251,11 @@ export function AdminStockView() {
       controller.abort();
     };
   }, [loadStock]);
+
+  // Volver a la página 1 al cambiar el término de búsqueda
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const handleStockChange = (
     productId: number,
@@ -501,6 +516,15 @@ export function AdminStockView() {
       ],
     );
 
+  // Cálculos de paginación
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedProducts = filteredProducts.slice(
+    startIndex,
+    startIndex + PAGE_SIZE,
+  );
+
   const totalStock =
     products.reduce(
       (
@@ -624,8 +648,19 @@ export function AdminStockView() {
             )
           }
           placeholder="Buscar por producto, SKU o categoría"
-          className="w-full rounded-full border border-black/5 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-[#4e0611]"
+          className="w-full rounded-full border border-black/5 bg-white py-3 pl-11 pr-10 text-sm outline-none focus:border-[#4e0611]"
         />
+
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            aria-label="Limpiar búsqueda"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-[#4e0611]"
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
 
       {error && (
@@ -663,241 +698,333 @@ export function AdminStockView() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-[28px] bg-white">
-          <div className="hidden grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] gap-4 border-b border-black/5 px-5 py-3 text-xs font-medium uppercase tracking-wider text-black/35 md:grid">
-            <span>
-              Producto
-            </span>
+        <>
+          {/* Barra superior de paginación */}
+          {filteredProducts.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+              <span>
+                Mostrando{' '}
+                <strong className="font-semibold text-black/75">
+                  {startIndex + 1}–
+                  {Math.min(startIndex + PAGE_SIZE, filteredProducts.length)}
+                </strong>{' '}
+                de{' '}
+                <strong className="font-semibold text-black/75">
+                  {filteredProducts.length}
+                </strong>{' '}
+                {filteredProducts.length === 1 ? 'producto' : 'productos'}
+              </span>
 
-            <span>
-              Categoría
-            </span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="mr-1">
+                    Página {currentPage} de {totalPages}
+                  </span>
 
-            <span>
-              Estado
-            </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    aria-label="Página anterior"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
 
-            <span>
-              Stock
-            </span>
-
-            <span>
-              Actualización
-            </span>
-          </div>
-
-          {filteredProducts.map(
-            (product) => {
-              const draft =
-                stockDrafts[
-                  product.id
-                ] ??
-                String(
-                  product.stock,
-                );
-
-              const draftNumber =
-                Number(draft);
-
-              const hasChanges =
-                draft !== '' &&
-                Number.isSafeInteger(
-                  draftNumber,
-                ) &&
-                draftNumber >= 0 &&
-                draftNumber !==
-                  product.stock;
-
-              const saving =
-                savingId ===
-                product.id;
-
-              const stockStatus =
-                product.stock === 0
-                  ? 'Agotado'
-                  : product.stock <=
-                      5
-                    ? 'Stock bajo'
-                    : 'Disponible';
-
-              return (
-                <div
-                  key={
-                    product.id
-                  }
-                  className="grid gap-4 border-b border-black/5 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] md:items-center"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">
-                      {
-                        product.name
-                      }
-                    </p>
-
-                    <p className="mt-1 truncate text-xs text-black/40">
-                      {
-                        product.sku
-                      }
-                    </p>
-
-                    {!product.active && (
-                      <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                        Producto
-                        inactivo
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-black/40 md:hidden">
-                      Categoría
-                    </p>
-
-                    <p className="mt-1 text-sm md:mt-0">
-                      {
-                        product.category
-                      }
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-black/40 md:hidden">
-                      Estado
-                    </p>
-
-                    <span
-                      className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider md:mt-0 ${
-                        product.stock ===
-                        0
-                          ? 'bg-red-100 text-red-700'
-                          : product.stock <=
-                              5
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                      }`}
-                    >
-                      {
-                        stockStatus
-                      }
-                    </span>
-                  </div>
-
-                  <div>
-                    <p className="mb-1 text-xs text-black/40 md:hidden">
-                      Stock
-                    </p>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={
-                          draft
-                        }
-                        onChange={(
-                          event,
-                        ) =>
-                          handleStockChange(
-                            product.id,
-                            event
-                              .target
-                              .value,
-                          )
-                        }
-                        disabled={
-                          saving
-                        }
-                        aria-label={`Stock de ${product.name}`}
-                        className="w-24 rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-center text-sm font-semibold outline-none focus:border-[#4e0611] disabled:cursor-not-allowed disabled:opacity-60"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void saveStock(
-                            product,
-                          );
-                        }}
-                        disabled={
-                          saving ||
-                          !hasChanges
-                        }
-                        aria-label={`Guardar stock de ${product.name}`}
-                        className="grid h-9 w-9 place-items-center rounded-full bg-[#4e0611] text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        {saving ? (
-                          <RefreshCw
-                            size={
-                              14
-                            }
-                            className="animate-spin"
-                          />
-                        ) : hasChanges ? (
-                          <Save
-                            size={
-                              14
-                            }
-                          />
-                        ) : (
-                          <Check
-                            size={
-                              14
-                            }
-                          />
-                        )}
-                      </button>
-                    </div>
-
-                    {rowErrors[
-                      product.id
-                    ] && (
-                      <p
-                        role="alert"
-                        className="mt-2 text-xs text-red-500"
-                      >
-                        {
-                          rowErrors[
-                            product.id
-                          ]
-                        }
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-black/40 md:hidden">
-                      Última
-                      actualización
-                    </p>
-
-                    <p className="mt-1 text-xs text-black/45 md:mt-0">
-                      {formatUpdatedAt(
-                        product.updatedAt,
-                      )}
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    aria-label="Página siguiente"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
                 </div>
-              );
-            },
-          )}
-
-          {filteredProducts.length ===
-            0 && (
-            <div className="p-14 text-center">
-              <Boxes
-                size={32}
-                className="mx-auto text-black/20"
-              />
-
-              <p className="mt-4 text-sm text-black/45">
-                No se
-                encontraron
-                productos.
-              </p>
+              )}
             </div>
           )}
-        </div>
+
+          <div className="overflow-hidden rounded-[28px] bg-white">
+            <div className="hidden grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] gap-4 border-b border-black/5 px-5 py-3 text-xs font-medium uppercase tracking-wider text-black/35 md:grid">
+              <span>
+                Producto
+              </span>
+
+              <span>
+                Categoría
+              </span>
+
+              <span>
+                Estado
+              </span>
+
+              <span>
+                Stock
+              </span>
+
+              <span>
+                Actualización
+              </span>
+            </div>
+
+            {paginatedProducts.map(
+              (product) => {
+                const draft =
+                  stockDrafts[
+                    product.id
+                  ] ??
+                  String(
+                    product.stock,
+                  );
+
+                const draftNumber =
+                  Number(draft);
+
+                const hasChanges =
+                  draft !== '' &&
+                  Number.isSafeInteger(
+                    draftNumber,
+                  ) &&
+                  draftNumber >= 0 &&
+                  draftNumber !==
+                    product.stock;
+
+                const saving =
+                  savingId ===
+                  product.id;
+
+                const stockStatus =
+                  product.stock === 0
+                    ? 'Agotado'
+                    : product.stock <=
+                        5
+                      ? 'Stock bajo'
+                      : 'Disponible';
+
+                return (
+                  <div
+                    key={
+                      product.id
+                    }
+                    className="grid gap-4 border-b border-black/5 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] md:items-center"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">
+                        {
+                          product.name
+                        }
+                      </p>
+
+                      <p className="mt-1 truncate text-xs text-black/40">
+                        {
+                          product.sku
+                        }
+                      </p>
+
+                      {!product.active && (
+                        <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          Producto
+                          inactivo
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-black/40 md:hidden">
+                        Categoría
+                      </p>
+
+                      <p className="mt-1 text-sm md:mt-0">
+                        {
+                          product.category
+                        }
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-black/40 md:hidden">
+                        Estado
+                      </p>
+
+                      <span
+                        className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider md:mt-0 ${
+                          product.stock ===
+                          0
+                            ? 'bg-red-100 text-red-700'
+                            : product.stock <=
+                                5
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {
+                          stockStatus
+                        }
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="mb-1 text-xs text-black/40 md:hidden">
+                        Stock
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={
+                            draft
+                          }
+                          onChange={(
+                            event,
+                          ) =>
+                            handleStockChange(
+                              product.id,
+                              event
+                                .target
+                                .value,
+                            )
+                          }
+                          disabled={
+                            saving
+                          }
+                          aria-label={`Stock de ${product.name}`}
+                          className="w-24 rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-center text-sm font-semibold outline-none focus:border-[#4e0611] disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void saveStock(
+                              product,
+                            );
+                          }}
+                          disabled={
+                            saving ||
+                            !hasChanges
+                          }
+                          aria-label={`Guardar stock de ${product.name}`}
+                          className="grid h-9 w-9 place-items-center rounded-full bg-[#4e0611] text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          {saving ? (
+                            <RefreshCw
+                              size={
+                                14
+                              }
+                              className="animate-spin"
+                            />
+                          ) : hasChanges ? (
+                            <Save
+                              size={
+                                14
+                              }
+                            />
+                          ) : (
+                            <Check
+                              size={
+                                14
+                              }
+                            />
+                          )}
+                        </button>
+                      </div>
+
+                      {rowErrors[
+                        product.id
+                      ] && (
+                        <p
+                          role="alert"
+                          className="mt-2 text-xs text-red-500"
+                        >
+                          {
+                            rowErrors[
+                              product.id
+                            ]
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-black/40 md:hidden">
+                        Última
+                        actualización
+                      </p>
+
+                      <p className="mt-1 text-xs text-black/45 md:mt-0">
+                        {formatUpdatedAt(
+                          product.updatedAt,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                );
+              },
+            )}
+
+            {filteredProducts.length ===
+              0 && (
+              <div className="p-14 text-center">
+                <Boxes
+                  size={32}
+                  className="mx-auto text-black/20"
+                />
+
+                <p className="mt-4 text-sm text-black/45">
+                  No se
+                  encontraron
+                  productos.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Barra inferior de paginación */}
+          {totalPages > 1 && (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+              <span>
+                Mostrando{' '}
+                <strong className="font-semibold text-black/75">
+                  {startIndex + 1}–
+                  {Math.min(startIndex + PAGE_SIZE, filteredProducts.length)}
+                </strong>{' '}
+                de{' '}
+                <strong className="font-semibold text-black/75">
+                  {filteredProducts.length}
+                </strong>{' '}
+                productos
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft size={14} />
+                  Anterior
+                </button>
+
+                <span className="px-1 font-medium text-black/70">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

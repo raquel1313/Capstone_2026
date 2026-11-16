@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import Image from 'next/image';
 import {
   AlertTriangle,
   Ban,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   PackageCheck,
   Search,
@@ -28,6 +30,9 @@ type StatusFilter = 'todos' | OrderStatus;
 type DatePreset = 'todo' | 'hoy' | 'ayer' | '7dias' | 'rango';
 type TimeBand = 'todas' | 'almuerzo' | 'fuera';
 type SortMode = 'recientes' | 'antiguos' | 'mayor' | 'menor';
+
+// Múltiplo de 3 para que la grilla de 3 columnas siempre quede simétrica
+const PAGE_SIZE = 21;
 
 const STATUS_OPTIONS: StatusFilter[] = [
   'todos',
@@ -73,6 +78,21 @@ function toLocalISODate(date: Date) {
   const d = String(date.getDate()).padStart(2, '0');
 
   return `${y}-${m}-${d}`;
+}
+
+function toYearMonth(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function formatMonthLabel(ym: string) {
+  const [y, m] = ym.split('-').map(Number);
+  const label = new Date(y, m - 1, 1).toLocaleDateString('es-CL', {
+    month: 'long',
+    year: 'numeric',
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function addDays(date: Date, amount: number) {
@@ -343,6 +363,7 @@ export function AdminOrdersView({
 }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
   const [datePreset, setDatePreset] = useState<DatePreset>('todo');
+  const [monthFilter, setMonthFilter] = useState<string>('todos');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
@@ -350,6 +371,8 @@ export function AdminOrdersView({
   const [timeBand, setTimeBand] = useState<TimeBand>('todas');
   const [sortMode, setSortMode] = useState<SortMode>('recientes');
   const [onlyAffected, setOnlyAffected] = useState(false);
+  const [page, setPage] = useState(1);
+
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [retiringId, setRetiringId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<{
@@ -367,6 +390,15 @@ export function AdminOrdersView({
 
   const affectedCount = orders.filter(isAffected).length;
   const showOnlyAffected = onlyAffected && affectedCount > 0;
+
+  // Meses disponibles extraídos dinámicamente de los pedidos registrados
+  const monthOptions = useMemo(() => {
+    const months = new Set<string>();
+    orders.forEach((order) => {
+      months.add(toYearMonth(new Date(order.createdAt)));
+    });
+    return Array.from(months).sort((a, b) => b.localeCompare(a));
+  }, [orders]);
 
   // Productos que aparecen en algún pedido, para el selector
   const productOptions = useMemo(() => {
@@ -391,10 +423,16 @@ export function AdminOrdersView({
     const matches = orders.filter((order) => {
       const created = new Date(order.createdAt);
       const orderDate = toLocalISODate(created);
+      const orderMonth = toYearMonth(created);
       const minutes = created.getHours() * 60 + created.getMinutes();
 
       // Estado
       if (statusFilter !== 'todos' && order.status !== statusFilter) {
+        return false;
+      }
+
+      // Filtro por mes
+      if (monthFilter !== 'todos' && orderMonth !== monthFilter) {
         return false;
       }
 
@@ -429,7 +467,6 @@ export function AdminOrdersView({
       }
 
       // Búsqueda por número de retiro o por estudiante
-      // (los pedidos antiguos pueden no tener username, por eso el respaldo)
       if (
         query &&
         !order.id.toLowerCase().includes(query) &&
@@ -459,6 +496,7 @@ export function AdminOrdersView({
   }, [
     orders,
     statusFilter,
+    monthFilter,
     datePreset,
     dateFrom,
     dateTo,
@@ -469,6 +507,28 @@ export function AdminOrdersView({
   ]);
 
   const visible = showOnlyAffected ? filtered.filter(isAffected) : filtered;
+
+  // Volver a la página 1 cada vez que cambie algún filtro
+  useEffect(() => {
+    setPage(1);
+  }, [
+    statusFilter,
+    monthFilter,
+    datePreset,
+    dateFrom,
+    dateTo,
+    search,
+    productId,
+    timeBand,
+    sortMode,
+    showOnlyAffected,
+  ]);
+
+  // Cálculos de paginación
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedOrders = visible.slice(startIndex, startIndex + PAGE_SIZE);
 
   const pendingTotal = orders.filter((o) => o.status === 'pendiente').length;
 
@@ -488,6 +548,7 @@ export function AdminOrdersView({
 
   const hasActiveFilters =
     statusFilter !== 'todos' ||
+    monthFilter !== 'todos' ||
     datePreset !== 'todo' ||
     search.trim() !== '' ||
     productId !== 'todos' ||
@@ -496,6 +557,7 @@ export function AdminOrdersView({
 
   const clearFilters = () => {
     setStatusFilter('todos');
+    setMonthFilter('todos');
     setDatePreset('todo');
     setDateFrom('');
     setDateTo('');
@@ -504,6 +566,7 @@ export function AdminOrdersView({
     setTimeBand('todas');
     setSortMode('recientes');
     setOnlyAffected(false);
+    setPage(1);
   };
 
   return (
@@ -671,21 +734,54 @@ export function AdminOrdersView({
           ))}
         </div>
 
-        {/* Fecha */}
+        {/* Fecha y Mes */}
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-black/40">
             <Calendar size={13} />
-            Fecha
+            Fecha y Período
           </div>
 
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {/* Selector de Mes */}
+            <select
+              value={monthFilter}
+              onChange={(event) => {
+                setMonthFilter(event.target.value);
+                if (event.target.value !== 'todos') {
+                  setDatePreset('todo');
+                }
+              }}
+              aria-label="Filtrar por mes"
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-medium outline-none transition ${
+                monthFilter !== 'todos'
+                  ? 'border-[#4e0611] bg-[#4e0611] text-white'
+                  : 'border-black/5 bg-[#f5f5f3] text-black/65 hover:bg-[#f8edef] hover:text-[#4e0611]'
+              }`}
+            >
+              <option value="todos" className="bg-white text-black">
+                Todos los meses
+              </option>
+              {monthOptions.map((ym) => (
+                <option key={ym} value={ym} className="bg-white text-black">
+                  {formatMonthLabel(ym)}
+                </option>
+              ))}
+            </select>
+
+            <span className="text-black/15">|</span>
+
             {DATE_PRESETS.map((preset) => (
               <button
                 type="button"
                 key={preset.id}
-                onClick={() => setDatePreset(preset.id)}
+                onClick={() => {
+                  setDatePreset(preset.id);
+                  if (preset.id !== 'todo') {
+                    setMonthFilter('todos');
+                  }
+                }}
                 className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-                  datePreset === preset.id
+                  datePreset === preset.id && monthFilter === 'todos'
                     ? 'bg-[#4e0611] text-white'
                     : 'bg-[#f5f5f3] text-black/55 hover:bg-[#f8edef] hover:text-[#4e0611]'
                 }`}
@@ -807,309 +903,397 @@ export function AdminOrdersView({
           )}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((order) => {
-            const cancelled = order.status === 'cancelado';
-            const pending = order.status === 'pendiente';
-            const badge = BADGES[order.status];
+        <>
+          {/* Barra superior de paginación estilo correo */}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+            <span>
+              Mostrando{' '}
+              <strong className="font-semibold text-black/75">
+                {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, visible.length)}
+              </strong>{' '}
+              de{' '}
+              <strong className="font-semibold text-black/75">
+                {visible.length}
+              </strong>{' '}
+              pedidos
+            </span>
 
-            const shortageItems = pending
-              ? order.items.filter((item) => shortageSet.has(item.id))
-              : [];
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <span className="mr-1">
+                  Página {currentPage} de {totalPages}
+                </span>
 
-            return (
-              <div key={order.id} className="rounded-[24px] bg-white p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-black/40">Número de retiro</p>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  aria-label="Página anterior"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft size={15} />
+                </button>
 
-                    <p
-                      className={`text-2xl font-bold tracking-widest ${
-                        cancelled
-                          ? 'text-black/30 line-through'
-                          : 'text-[#4e0611]'
-                      }`}
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  aria-label="Página siguiente"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {paginatedOrders.map((order) => {
+              const cancelled = order.status === 'cancelado';
+              const pending = order.status === 'pendiente';
+              const badge = BADGES[order.status];
+
+              const shortageItems = pending
+                ? order.items.filter((item) => shortageSet.has(item.id))
+                : [];
+
+              return (
+                <div key={order.id} className="rounded-[24px] bg-white p-5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs text-black/40">Número de retiro</p>
+
+                      <p
+                        className={`text-2xl font-bold tracking-widest ${
+                          cancelled
+                            ? 'text-black/30 line-through'
+                            : 'text-[#4e0611]'
+                        }`}
+                      >
+                        {order.id}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${badge.className}`}
                     >
-                      {order.id}
-                    </p>
-                  </div>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${badge.className}`}
-                  >
-                    {badge.label}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/40">
-                  <span className="flex items-center gap-1.5">
-                    <Clock size={12} />
-
-                    {new Date(order.createdAt).toLocaleDateString('es-CL', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}{' '}
-                    ·{' '}
-                    {new Date(order.createdAt).toLocaleTimeString('es-CL', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <User size={12} className="shrink-0" />
-                    <span className="truncate">
-                      {order.username ?? 'Sin usuario'}
-                    </span>
-                  </span>
-                </div>
-
-                {shortageItems.length > 0 && (
-                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
-                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-
-                    <span>
-                      Incluye un producto agotado:{' '}
-                      {shortageItems.map((item) => item.name).join(', ')}.
+                      {badge.label}
                     </span>
                   </div>
-                )}
 
-                <ul className="mt-4 space-y-1.5 border-t border-black/5 pt-4">
-                  {order.items.map((item) => (
-                    <li key={item.id}>
-                      <div className="flex items-center justify-between gap-2 text-sm">
-                        <span
-                          className={`min-w-0 flex-1 truncate ${
-                            cancelled ? 'text-black/35' : 'text-black/65'
-                          }`}
-                        >
-                          {item.quantity}x {item.name}
-                        </span>
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/40">
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={12} />
 
-                        <span
-                          className={`shrink-0 font-medium ${
-                            cancelled ? 'text-black/35' : ''
-                          }`}
-                        >
-                          {formatPrice(item.price * item.quantity)}
-                        </span>
+                      {new Date(order.createdAt).toLocaleDateString('es-CL', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}{' '}
+                      ·{' '}
+                      {new Date(order.createdAt).toLocaleTimeString('es-CL', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
 
-                        {pending && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRemoving(
-                                removing?.orderId === order.id &&
-                                  removing.itemId === item.id
-                                  ? null
-                                  : { orderId: order.id, itemId: item.id }
-                              )
-                            }
-                            aria-label={`Quitar ${item.name} del pedido`}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#f5f5f3] text-black/45 transition hover:bg-red-50 hover:text-red-700"
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <User size={12} className="shrink-0" />
+                      <span className="truncate">
+                        {order.username ?? 'Sin usuario'}
+                      </span>
+                    </span>
+                  </div>
+
+                  {shortageItems.length > 0 && (
+                    <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+
+                      <span>
+                        Incluye un producto agotado:{' '}
+                        {shortageItems.map((item) => item.name).join(', ')}.
+                      </span>
+                    </div>
+                  )}
+
+                  <ul className="mt-4 space-y-1.5 border-t border-black/5 pt-4">
+                    {order.items.map((item) => (
+                      <li key={item.id}>
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span
+                            className={`min-w-0 flex-1 truncate ${
+                              cancelled ? 'text-black/35' : 'text-black/65'
+                            }`}
                           >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                      </div>
+                            {item.quantity}x {item.name}
+                          </span>
 
-                      {removing?.orderId === order.id &&
-                        removing.itemId === item.id && (
-                          <RemoveItemPanel
-                            item={item}
-                            isShortage={shortageSet.has(item.id)}
-                            wouldCancel={order.items.length === 1}
-                            onConfirm={(quantity, reason) => {
-                              removeOrderItem(
-                                order.id,
-                                item.id,
-                                quantity,
-                                'personal',
-                                reason
-                              );
-                              setRemoving(null);
-                            }}
-                            onClose={() => setRemoving(null)}
-                          />
-                        )}
-                    </li>
-                  ))}
-                </ul>
+                          <span
+                            className={`shrink-0 font-medium ${
+                              cancelled ? 'text-black/35' : ''
+                            }`}
+                          >
+                            {formatPrice(item.price * item.quantity)}
+                          </span>
 
-                {(order.adjustments?.length ?? 0) > 0 && (
-                  <ul className="mt-3 space-y-0.5">
-                    {order.adjustments?.map((adjustment) => (
-                      <li key={adjustment.at} className="text-[11px] text-black/40">
-                        Se quitó {adjustment.quantity}x {adjustment.name} (
-                        {adjustment.by === 'personal' ? 'casino' : 'cliente'}:{' '}
-                        {adjustment.reason})
+                          {pending && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRemoving(
+                                  removing?.orderId === order.id &&
+                                    removing.itemId === item.id
+                                    ? null
+                                    : { orderId: order.id, itemId: item.id }
+                                )
+                              }
+                              aria-label={`Quitar ${item.name} del pedido`}
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#f5f5f3] text-black/45 transition hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+
+                        {removing?.orderId === order.id &&
+                          removing.itemId === item.id && (
+                            <RemoveItemPanel
+                              item={item}
+                              isShortage={shortageSet.has(item.id)}
+                              wouldCancel={order.items.length === 1}
+                              onConfirm={(quantity, reason) => {
+                                removeOrderItem(
+                                  order.id,
+                                  item.id,
+                                  quantity,
+                                  'personal',
+                                  reason
+                                );
+                                setRemoving(null);
+                              }}
+                              onClose={() => setRemoving(null)}
+                            />
+                          )}
                       </li>
                     ))}
                   </ul>
-                )}
 
-                {cancelled ? (
-                  <div className="mt-4 border-t border-black/5 pt-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-black/30 line-through">
-                        {formatPrice(order.subtotal)}
-                      </span>
+                  {(order.adjustments?.length ?? 0) > 0 && (
+                    <ul className="mt-3 space-y-0.5">
+                      {order.adjustments?.map((adjustment) => (
+                        <li key={adjustment.at} className="text-[11px] text-black/40">
+                          Se quitó {adjustment.quantity}x {adjustment.name} (
+                          {adjustment.by === 'personal' ? 'casino' : 'cliente'}:{' '}
+                          {adjustment.reason})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
 
-                      {order.cancelledAt && (
-                        <span className="text-xs text-black/40">
-                          {new Date(order.cancelledAt).toLocaleDateString(
-                            'es-CL',
-                            { day: 'numeric', month: 'short' }
-                          )}{' '}
-                          ·{' '}
-                          {new Date(order.cancelledAt).toLocaleTimeString(
-                            'es-CL',
-                            { hour: '2-digit', minute: '2-digit' }
-                          )}
+                  {cancelled ? (
+                    <div className="mt-4 border-t border-black/5 pt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-black/30 line-through">
+                          {formatPrice(order.subtotal)}
                         </span>
-                      )}
+
+                        {order.cancelledAt && (
+                          <span className="text-xs text-black/40">
+                            {new Date(order.cancelledAt).toLocaleDateString(
+                              'es-CL',
+                              { day: 'numeric', month: 'short' }
+                            )}{' '}
+                            ·{' '}
+                            {new Date(order.cancelledAt).toLocaleTimeString(
+                              'es-CL',
+                              { hour: '2-digit', minute: '2-digit' }
+                            )}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-2 text-xs text-red-700">
+                        {order.cancelledBy === 'cliente'
+                          ? 'Cancelado por el cliente'
+                          : `Cancelado por el casino${
+                              order.cancelReason ? ` · ${order.cancelReason}` : ''
+                            }`}
+                      </p>
                     </div>
-
-                    <p className="mt-2 text-xs text-red-700">
-                      {order.cancelledBy === 'cliente'
-                        ? 'Cancelado por el cliente'
-                        : `Cancelado por el casino${
-                            order.cancelReason ? ` · ${order.cancelReason}` : ''
-                          }`}
-                    </p>
-                  </div>
-                ) : order.status === 'retirado' ? (
-                  <div className="mt-4 flex items-center justify-between gap-2 border-t border-black/5 pt-4">
-                    <span className="text-sm font-semibold">
-                      {formatPrice(order.subtotal)}
-                    </span>
-
-                    <span className="flex items-center gap-1.5 text-xs text-emerald-700">
-                      <PackageCheck size={13} />
-                      Entregado
-                      {order.retiredAt
-                        ? ` a las ${new Date(order.retiredAt).toLocaleTimeString(
-                            'es-CL',
-                            { hour: '2-digit', minute: '2-digit' }
-                          )}`
-                        : ''}
-                      {order.retiredBy ? ` · ${order.retiredBy}` : ''}
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-4">
+                  ) : order.status === 'retirado' ? (
+                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-black/5 pt-4">
                       <span className="text-sm font-semibold">
                         {formatPrice(order.subtotal)}
                       </span>
 
-                      {pending ? (
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCancellingId(
-                                cancellingId === order.id ? null : order.id
-                              )
-                            }
-                            className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
-                              shortageItems.length > 0
-                                ? 'bg-red-600 text-white hover:bg-red-700'
-                                : 'bg-[#f5f5f3] text-black/60 hover:bg-red-50 hover:text-red-700'
-                            }`}
-                          >
-                            <Ban size={13} />
-                            Cancelar
-                          </button>
+                      <span className="flex items-center gap-1.5 text-xs text-emerald-700">
+                        <PackageCheck size={13} />
+                        Entregado
+                        {order.retiredAt
+                          ? ` a las ${new Date(order.retiredAt).toLocaleTimeString(
+                              'es-CL',
+                              { hour: '2-digit', minute: '2-digit' }
+                            )}`
+                          : ''}
+                        {order.retiredBy ? ` · ${order.retiredBy}` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-4">
+                        <span className="text-sm font-semibold">
+                          {formatPrice(order.subtotal)}
+                        </span>
 
-                          <button
-                            type="button"
-                            onClick={() => updateStatus(order.id, 'listo')}
-                            className="rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
-                          >
-                            Marcar como listo
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateStatus(order.id, 'pendiente')}
-                            className="rounded-full bg-[#f8edef] px-4 py-2 text-xs font-medium text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
-                          >
-                            Revertir
-                          </button>
+                        {pending ? (
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCancellingId(
+                                  cancellingId === order.id ? null : order.id
+                                )
+                              }
+                              className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
+                                shortageItems.length > 0
+                                  ? 'bg-red-600 text-white hover:bg-red-700'
+                                  : 'bg-[#f5f5f3] text-black/60 hover:bg-red-50 hover:text-red-700'
+                              }`}
+                            >
+                              <Ban size={13} />
+                              Cancelar
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRetiringId(
-                                retiringId === order.id ? null : order.id
-                              )
-                            }
-                            className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
-                          >
-                            <PackageCheck size={13} />
-                            Marcar como retirado
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => updateStatus(order.id, 'listo')}
+                              className="rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                            >
+                              Marcar como listo
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateStatus(order.id, 'pendiente')}
+                              className="rounded-full bg-[#f8edef] px-4 py-2 text-xs font-medium text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+                            >
+                              Revertir
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRetiringId(
+                                  retiringId === order.id ? null : order.id
+                                )
+                              }
+                              className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                            >
+                              <PackageCheck size={13} />
+                              Marcar como retirado
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {retiringId === order.id && (
+                        <div className="mt-4 rounded-2xl bg-[#f8edef] p-4">
+                          <p className="text-xs font-semibold text-[#4e0611]">
+                            ¿El cliente ya retiró este pedido?
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-black/55">
+                            Se descontará del stock:{' '}
+                            {order.items
+                              .map((item) => `${item.quantity}x ${item.name}`)
+                              .join(', ')}
+                            . Esta acción no se puede revertir.
+                          </p>
+
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                retireOrder(order.id);
+                                setRetiringId(null);
+                              }}
+                              className="flex-1 rounded-full bg-[#4e0611] py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                            >
+                              Sí, fue retirado
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setRetiringId(null)}
+                              className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/5"
+                            >
+                              Volver
+                            </button>
+                          </div>
                         </div>
                       )}
-                    </div>
 
-                    {retiringId === order.id && (
-                      <div className="mt-4 rounded-2xl bg-[#f8edef] p-4">
-                        <p className="text-xs font-semibold text-[#4e0611]">
-                          ¿El cliente ya retiró este pedido?
-                        </p>
+                      {cancellingId === order.id && (
+                        <CancelPanel
+                          soldOutNames={shortageItems.map((item) => item.name)}
+                          onConfirm={(reason) => {
+                            cancelOrder(order.id, 'personal', reason);
+                            setCancellingId(null);
+                          }}
+                          onClose={() => setCancellingId(null)}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-                        <p className="mt-1 text-xs leading-5 text-black/55">
-                          Se descontará del stock:{' '}
-                          {order.items
-                            .map((item) => `${item.quantity}x ${item.name}`)
-                            .join(', ')}
-                          . Esta acción no se puede revertir.
-                        </p>
+          {/* Barra inferior de paginación */}
+          {totalPages > 1 && (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+              <span>
+                Mostrando{' '}
+                <strong className="font-semibold text-black/75">
+                  {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, visible.length)}
+                </strong>{' '}
+                de{' '}
+                <strong className="font-semibold text-black/75">
+                  {visible.length}
+                </strong>{' '}
+                pedidos
+              </span>
 
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              retireOrder(order.id);
-                              setRetiringId(null);
-                            }}
-                            className="flex-1 rounded-full bg-[#4e0611] py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
-                          >
-                            Sí, fue retirado
-                          </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft size={14} />
+                  Anterior
+                </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setRetiringId(null)}
-                            className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/5"
-                          >
-                            Volver
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                <span className="px-1 font-medium text-black/70">
+                  {currentPage} / {totalPages}
+                </span>
 
-                    {cancellingId === order.id && (
-                      <CancelPanel
-                        soldOutNames={shortageItems.map((item) => item.name)}
-                        onConfirm={(reason) => {
-                          cancelOrder(order.id, 'personal', reason);
-                          setCancellingId(null);
-                        }}
-                        onClose={() => setCancellingId(null)}
-                      />
-                    )}
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente
+                  <ChevronRight size={14} />
+                </button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
