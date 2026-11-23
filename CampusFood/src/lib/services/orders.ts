@@ -5,7 +5,8 @@ import { Prisma } from '../../../generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ServiceError } from '@/lib/services/errors';
 import { createNotification } from '@/lib/services/notifications';
-import { assertNotBlocked, } from '@/lib/services/penalties';
+import { assertNotBlocked } from '@/lib/services/penalties';
+import { isServiceOpen, OUT_OF_HOURS_MESSAGE } from '@/utils/orderRules';
 import type { Order, OrderStatus } from '@/types';
 
 /*
@@ -91,6 +92,7 @@ const orderInclude = {
       nombreProducto: true,
       cantidad: true,
       precioUnitario: true,
+      subtotal: true,
     },
     orderBy: { idDetalle: 'asc' },
   },
@@ -113,8 +115,9 @@ const orderInclude = {
     take: 1,
   },
   pago: {
-    select: { monto: true, medioPago: true, fechaPago: true },
+    select: { monto: true, medioPago: true, estado: true, fechaPago: true },
   },
+  usuario: { select: { nombre: true, apellido: true } },
 } satisfies Prisma.PedidoInclude;
 
 type OrderRow = Prisma.PedidoGetPayload<{ include: typeof orderInclude }>;
@@ -138,11 +141,13 @@ export function toOrder(row: OrderRow): Order {
   return {
     id: row.codigoRetiro,
     username: row.clienteEmail,
+    customerName: `${row.usuario.nombre} ${row.usuario.apellido}`.trim() || undefined,
     items: row.detalles.map((detalle) => ({
       id: detalle.idProducto,
       name: detalle.nombreProducto,
       price: detalle.precioUnitario,
       quantity: detalle.cantidad,
+      lineTotal: detalle.subtotal,
     })),
     subtotal: row.total,
     status: toOrderStatus(row.estado.nombre),
@@ -170,6 +175,7 @@ export function toOrder(row: OrderRow): Order {
       ? {
           amount: row.pago.monto,
           method: row.pago.medioPago,
+          status: row.pago.estado,
           at: row.pago.fechaPago.toISOString(),
         }
       : undefined,
@@ -257,7 +263,14 @@ function normalizeItems(input: CreateOrderInput) {
 export async function createOrder(
   actor: Actor,
   input: CreateOrderInput,
+  // Instante de la solicitud; se puede inyectar para probar el horario.
+  now: Date = new Date(),
 ): Promise<Order> {
+  // El horario se valida aquí (hora de Chile): la pantalla solo lo informa.
+  if (!isServiceOpen(now)) {
+    throw new ServiceError(403, 'OUTSIDE_SERVICE_HOURS', OUT_OF_HOURS_MESSAGE);
+  }
+
   const items = normalizeItems(input);
 
   // Un cliente con 3 faltas recientes no puede pedir (se valida en el servidor).
@@ -388,20 +401,21 @@ type OrderForUpdate = {
 };
 
 async function lockOrder(tx: Tx, code: string): Promise<OrderForUpdate> {
+  // Se bloquea solo la fila de pedidos. Si el JOIN con estados_pedido fuera parte de la consulta
+  // bloqueante, quien espera el bloqueo no vería la fila actualizada (devolvería 404 en vez de 409).
   const rows = await tx.$queryRaw<
     {
       id_pedido: number;
       id_usuario: string;
       total: number;
       fecha_creacion: Date;
-      estado: EstadoNombre;
+      id_estado: number;
     }[]
   >`
-    SELECT o.id_pedido, o.id_usuario, o.total, o.fecha_creacion, e.nombre AS estado
-    FROM pedidos o
-    JOIN estados_pedido e ON e.id_estado = o.id_estado
-    WHERE o.codigo_retiro = ${code}
-    FOR UPDATE OF o
+    SELECT id_pedido, id_usuario, total, fecha_creacion, id_estado
+    FROM pedidos
+    WHERE codigo_retiro = ${code}
+    FOR UPDATE
   `;
 
   const row = rows[0];
@@ -410,12 +424,17 @@ async function lockOrder(tx: Tx, code: string): Promise<OrderForUpdate> {
     throw new ServiceError(404, 'ORDER_NOT_FOUND', 'El pedido no existe.');
   }
 
+  const estado = await tx.estadoPedido.findUniqueOrThrow({
+    where: { idEstado: row.id_estado },
+    select: { nombre: true },
+  });
+
   return {
     idPedido: row.id_pedido,
     createdAt: row.fecha_creacion,
     idUsuario: row.id_usuario,
     total: row.total,
-    estado: row.estado,
+    estado: estado.nombre as EstadoNombre,
   };
 }
 
@@ -511,16 +530,6 @@ async function cancelInTransaction(
       fechaCancelacion: now,
     },
   });
-
-  // Cancelar fuera del plazo gratuito es una falta del cliente.
-  //if (origen === 'CLIENTE') {
-  //  await recordLateCancellation(tx, {
-     // idUsuario: order.idUsuario,
-     // idPedido: order.idPedido,
-     // createdAt: order.createdAt,
-     // now,
-    //});
-  //}
 
   await tx.historialEstadoPedido.create({
     data: {
@@ -684,25 +693,57 @@ export async function removeOrderItem(
   });
 }
 
+/** Medios de pago presencial aceptados al cobrar. OTRO solo existe en pagos históricos. */
+export const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'TARJETA_ALIMENTACION'] as const;
+
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
 export type RetireInput = {
-  medioPago?: 'EFECTIVO' | 'DEBITO' | 'CREDITO' | 'OTRO';
+  medioPago: PaymentMethod;
 };
 
-/** Entrega el pedido: registra el pago presencial, descuenta el stock y cierra el pedido. */
+/**
+ * Cobro presencial y entrega. En una sola transacción:
+ * valida el pedido, descuenta stock, registra el Pago (monto tomado de la BD),
+ * pasa el pedido a RETIRADO, deja historial y avisa al cliente.
+ * Si algo falla se revierte todo: nunca queda "pagado" con el pedido en LISTO.
+ */
 export async function retireOrder(
   actor: Actor,
   code: string,
-  input: RetireInput = {},
+  input: RetireInput,
 ): Promise<Order> {
   assertStaff(actor);
+
+  if (!PAYMENT_METHODS.includes(input.medioPago)) {
+    throw new ServiceError(400, 'INVALID_PAYMENT_METHOD', 'Medio de pago no válido.');
+  }
 
   return prisma.$transaction(
     async (tx) => {
       const estados = await getEstadoIds(tx);
       const order = await lockOrder(tx, code);
 
+      if (order.estado === 'RETIRADO') {
+        throw new ServiceError(409, 'ORDER_ALREADY_RETIRED', 'Este pedido ya fue pagado y retirado.');
+      }
+
+      if (order.estado === 'CANCELADO') {
+        throw new ServiceError(409, 'ORDER_CANCELLED', 'No se puede cobrar un pedido cancelado.');
+      }
+
       if (order.estado !== 'LISTO') {
         throw new ServiceError(409, 'INVALID_TRANSITION', 'Solo se puede retirar un pedido que está listo.');
+      }
+
+      // Validación explícita (además del índice único sobre id_pedido).
+      const existingPayment = await tx.pago.findUnique({
+        where: { idPedido: order.idPedido },
+        select: { idPago: true },
+      });
+
+      if (existingPayment) {
+        throw new ServiceError(409, 'PAYMENT_ALREADY_REGISTERED', 'Este pedido ya tiene un pago registrado.');
       }
 
       const detalles = await tx.pedidoDetalle.findMany({
@@ -721,12 +762,12 @@ export async function retireOrder(
         `;
       }
 
-      // El índice único sobre id_pedido impide registrar dos pagos del mismo pedido.
+      // El monto es siempre el total guardado en el pedido, nunca un valor del navegador.
       await tx.pago.create({
         data: {
           idPedido: order.idPedido,
           monto: order.total,
-          medioPago: input.medioPago ?? 'EFECTIVO',
+          medioPago: input.medioPago,
           registradoPor: actor.userId,
         },
       });
@@ -741,7 +782,17 @@ export async function retireOrder(
           idPedido: order.idPedido,
           idEstado: estados.RETIRADO,
           cambiadoPor: actor.userId,
+          motivo: 'LISTO → RETIRADO (pago presencial)',
         },
+      });
+
+      await createNotification(tx, {
+        idUsuario: order.idUsuario,
+        idPedido: order.idPedido,
+        tipo: 'PEDIDO_RETIRADO',
+        clave: `retired:${order.idPedido}`,
+        titulo: 'Pedido retirado',
+        mensaje: `Tu pedido ${code} fue retirado correctamente.`,
       });
 
       return loadOrder(tx, code);

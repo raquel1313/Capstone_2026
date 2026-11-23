@@ -38,14 +38,14 @@ export function ProductCard({
         )}
 
         {soldOut && (
-          <div className="absolute inset-0 z-10 grid place-items-center bg-black/30">
+          <div className="absolute inset-0 z-10 grid place-items-center bg-ink/30">
             <span className="rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white">
               Agotado
             </span>
           </div>
         )}
 
-        <div className="absolute left-3 top-3 z-20 rounded-full bg-white/65 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-black/50">
+        <div className="absolute left-3 top-3 z-20 rounded-full bg-white/65 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-ink/65">
           {product.category}
         </div>
 
@@ -60,10 +60,10 @@ export function ProductCard({
               ? `${product.name} agotado`
               : `Agregar ${product.name}`
           }
-          className={`absolute bottom-2 right-2 z-20 grid h-7 w-7 place-items-center rounded-full text-white transition ${
+          className={`absolute bottom-2 right-2 z-20 grid h-7 w-7 place-items-center rounded-full transition ${
             soldOut
-              ? 'cursor-not-allowed bg-black/30'
-              : 'bg-[#252525] group-hover:bg-[#4e0611]'
+              ? 'cursor-not-allowed bg-ink/30 text-white'
+              : 'bg-brand text-white group-hover:bg-accent group-hover:text-ink'
           }`}
         >
           <Plus size={14} />
@@ -74,7 +74,7 @@ export function ProductCard({
         {product.name}
       </p>
 
-      <p className="mt-1 text-xs text-black/45">
+      <p className="mt-1 text-xs text-ink/65">
         {formatPrice(
           product.price,
         )}

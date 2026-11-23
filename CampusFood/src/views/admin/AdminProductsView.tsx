@@ -22,10 +22,16 @@ import {
 import Image from 'next/image';
 
 import {
+  discardUploadedImage,
+  ProductImageField,
+} from '@/components/admin/ProductImageField';
+
+import {
   formatPrice,
   type Product,
   type ProductTheme,
 } from '@/data';
+import { useResettingPage } from '@/hooks/useResettingPage';
 
 // Múltiplo de 4 para mantener simétrica la grilla xl:grid-cols-4
 const PAGE_SIZE = 20;
@@ -47,6 +53,7 @@ type ProductPayload = {
   idCategoria: number;
   activo: boolean;
   imagenUrl: string | null;
+  imagenPath: string | null;
   temaVisual: ProductTheme;
 };
 
@@ -59,6 +66,7 @@ type FormState = {
   categoryId: number | null;
   active: boolean;
   image: string;
+  imagePath: string | null;
   theme: ProductTheme;
 };
 
@@ -165,6 +173,10 @@ function parseProduct(
     category: value.category,
     active: value.active,
     image: value.image,
+    imagePath:
+      typeof value.imagePath === 'string'
+        ? value.imagePath
+        : null,
     theme: value.theme,
     tone: value.tone,
   };
@@ -387,6 +399,7 @@ function createEmptyForm(
       null,
     active: true,
     image: '',
+    imagePath: null,
     theme: 'amber',
   };
 }
@@ -410,6 +423,8 @@ function productToForm(
     active: product.active,
     image:
       product.image ?? '',
+    imagePath:
+      product.imagePath ?? null,
     theme: product.theme,
   };
 }
@@ -533,6 +548,8 @@ function ProductForm({
             imagenUrl:
               form.image.trim() ||
               null,
+            imagenPath:
+              form.imagePath,
             temaVisual:
               form.theme,
           });
@@ -548,12 +565,12 @@ function ProductForm({
     };
 
   return (
-    <div className="rounded-[24px] border-2 border-dashed border-[#4e0611]/40 bg-white p-5">
+    <div className="rounded-[24px] border-2 border-dashed border-brand/40 bg-white p-5">
       <div className="space-y-3">
         <div>
           <label
             htmlFor="product-sku"
-            className="text-xs text-black/40"
+            className="text-xs text-ink/65"
           >
             SKU
           </label>
@@ -573,14 +590,14 @@ function ProductForm({
               })
             }
             placeholder="Ej. DUL-QUE-001"
-            className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm uppercase outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm uppercase outline-none focus:border-brand"
           />
         </div>
 
         <div>
           <label
             htmlFor="product-name"
-            className="text-xs text-black/40"
+            className="text-xs text-ink/65"
           >
             Nombre
           </label>
@@ -600,14 +617,14 @@ function ProductForm({
               })
             }
             placeholder="Ej. Queque de zanahoria"
-            className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
         <div>
           <label
             htmlFor="product-description"
-            className="text-xs text-black/40"
+            className="text-xs text-ink/65"
           >
             Descripción
           </label>
@@ -629,7 +646,7 @@ function ProductForm({
               })
             }
             placeholder="Ej. Suave, casero y con nueces"
-            className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
@@ -637,7 +654,7 @@ function ProductForm({
           <div>
             <label
               htmlFor="product-price"
-              className="text-xs text-black/40"
+              className="text-xs text-ink/65"
             >
               Precio (CLP)
             </label>
@@ -661,14 +678,14 @@ function ProductForm({
                 })
               }
               placeholder="1990"
-              className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+              className="mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
             />
           </div>
 
           <div>
             <label
               htmlFor="product-stock"
-              className="text-xs text-black/40"
+              className="text-xs text-ink/65"
             >
               Stock
             </label>
@@ -692,7 +709,7 @@ function ProductForm({
                 })
               }
               placeholder="10"
-              className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+              className="mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
             />
           </div>
         </div>
@@ -700,7 +717,7 @@ function ProductForm({
         <div>
           <label
             htmlFor="product-category"
-            className="text-xs text-black/40"
+            className="text-xs text-ink/65"
           >
             Categoría
           </label>
@@ -727,7 +744,7 @@ function ProductForm({
                     : null,
               })
             }
-            className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
           >
             <option
               value=""
@@ -761,7 +778,7 @@ function ProductForm({
         </div>
 
         <div>
-          <span className="text-xs text-black/40">
+          <span className="text-xs text-ink/65">
             Color de fondo
           </span>
 
@@ -785,7 +802,7 @@ function ProductForm({
                   className={`h-8 w-8 rounded-full bg-gradient-to-br ${option.tone} transition ${
                     form.theme ===
                     option.theme
-                      ? 'ring-2 ring-[#4e0611] ring-offset-2'
+                      ? 'ring-2 ring-brand ring-offset-2'
                       : ''
                   }`}
                   title={
@@ -798,12 +815,36 @@ function ProductForm({
           </div>
         </div>
 
-        <div>
+        <ProductImageField
+          value={{
+            imageUrl: form.image,
+            imagePath: form.imagePath,
+          }}
+          savedPath={
+            initial.imagePath
+          }
+          disabled={saving}
+          onChange={(next) =>
+            setForm({
+              ...form,
+              image:
+                next.imageUrl,
+              imagePath:
+                next.imagePath,
+            })
+          }
+        />
+
+        <details className="rounded-xl bg-brand-soft/60 px-3 py-2">
+          <summary className="cursor-pointer text-xs text-ink/65">
+            Usar una ruta o URL en vez de subir un archivo
+          </summary>
+
           <label
             htmlFor="product-image"
-            className="text-xs text-black/40"
+            className="mt-2 block text-xs text-ink/65"
           >
-            Ruta o URL de imagen
+            Ruta local o URL HTTPS
           </label>
 
           <input
@@ -813,20 +854,33 @@ function ProductForm({
             }
             onChange={(
               event,
-            ) =>
+            ) => {
+              // Una imagen subida sin guardar se descarta al escribir una URL manual.
+              if (
+                form.imagePath &&
+                form.imagePath !==
+                  initial.imagePath
+              ) {
+                void discardUploadedImage(
+                  form.imagePath,
+                );
+              }
+
               setForm({
                 ...form,
                 image:
                   event.target
                     .value,
-              })
-            }
+                imagePath:
+                  null,
+              });
+            }}
             placeholder="/images/products/foto1.jpg"
-            className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
           />
-        </div>
+        </details>
 
-        <label className="flex items-center gap-2 text-xs text-black/50">
+        <label className="flex items-center gap-2 text-xs text-ink/65">
           <input
             type="checkbox"
             checked={
@@ -842,7 +896,7 @@ function ProductForm({
                     .checked,
               })
             }
-            className="h-4 w-4 rounded accent-[#4e0611]"
+            className="h-4 w-4 rounded accent-brand"
           />
 
           Producto activo
@@ -862,7 +916,7 @@ function ProductForm({
             void handleSave();
           }}
           disabled={saving}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#4e0611] py-2.5 text-xs font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-xs font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Check size={14} />
 
@@ -873,11 +927,22 @@ function ProductForm({
 
         <button
           type="button"
-          onClick={
-            onCancel
-          }
+          onClick={() => {
+            // Una imagen subida y sin guardar queda huérfana: se elimina.
+            if (
+              form.imagePath &&
+              form.imagePath !==
+                initial.imagePath
+            ) {
+              void discardUploadedImage(
+                form.imagePath,
+              );
+            }
+
+            onCancel();
+          }}
           disabled={saving}
-          className="rounded-full bg-[#f8edef] px-4 py-2.5 text-xs font-medium text-black/50 transition hover:bg-black/10 disabled:opacity-50"
+          className="rounded-full bg-brand-soft px-4 py-2.5 text-xs font-medium text-ink/65 transition hover:bg-ink/10 disabled:opacity-50"
         >
           Cancelar
         </button>
@@ -982,7 +1047,7 @@ function ProductCard({
     <div
       className={`rounded-[24px] bg-white p-4 ${
         !product.active
-          ? 'opacity-70 ring-1 ring-black/10'
+          ? 'opacity-70 ring-1 ring-ink/10'
           : soldOut
             ? 'ring-1 ring-red-200'
             : ''
@@ -1010,21 +1075,21 @@ function ProductCard({
         )}
 
         {soldOut && (
-          <div className="absolute inset-0 grid place-items-center bg-black/30">
+          <div className="absolute inset-0 grid place-items-center bg-ink/30">
             <span className="rounded-full bg-red-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
               Agotado
             </span>
           </div>
         )}
 
-        <span className="absolute left-3 top-3 rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-black/50">
+        <span className="absolute left-3 top-3 rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink/65">
           {
             product.category
           }
         </span>
 
         {!product.active && (
-          <span className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+          <span className="absolute right-3 top-3 rounded-full bg-ink/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
             Inactivo
           </span>
         )}
@@ -1036,23 +1101,23 @@ function ProductCard({
             {product.name}
           </p>
 
-          <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-black/35">
+          <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-ink/65">
             {product.sku}
           </p>
 
-          <p className="mt-1 text-xs text-black/45">
+          <p className="mt-1 text-xs text-ink/65">
             {
               product.description
             }
           </p>
 
-          <p className="mt-1.5 text-sm font-semibold text-[#4e0611]">
+          <p className="mt-1.5 text-sm font-semibold text-brand">
             {formatPrice(
               product.price,
             )}
           </p>
 
-          <p className="mt-1 text-xs text-black/45">
+          <p className="mt-1 text-xs text-ink/65">
             Stock:{' '}
             <span className="font-semibold">
               {
@@ -1072,7 +1137,7 @@ function ProductCard({
             }
             disabled={busy}
             aria-label={`Editar ${product.name}`}
-            className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611] disabled:opacity-50"
+            className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10 hover:text-brand disabled:opacity-50"
           >
             <Pencil
               size={13}
@@ -1103,7 +1168,7 @@ function ProductCard({
               }
               disabled={busy}
               aria-label={`Eliminar ${product.name}`}
-              className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+              className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
             >
               <Trash2
                 size={13}
@@ -1121,7 +1186,7 @@ function ProductCard({
               }
               disabled={busy}
               aria-label="Cancelar eliminación"
-              className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 disabled:opacity-50"
+              className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10 disabled:opacity-50"
             >
               <X
                 size={13}
@@ -1139,8 +1204,8 @@ function ProductCard({
         disabled={busy}
         className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition disabled:opacity-50 ${
           product.active
-            ? 'bg-[#f8edef] text-black/60 hover:bg-black/10 hover:text-[#4e0611]'
-            : 'bg-[#4e0611] text-white hover:bg-[#36040c]'
+            ? 'bg-brand-soft text-ink/75 hover:bg-ink/10 hover:text-brand'
+            : 'bg-brand text-white hover:bg-brand-dark'
         }`}
       >
         {product.active ? (
@@ -1212,10 +1277,6 @@ export function AdminProductsView() {
     setSearch,
   ] = useState('');
 
-  const [
-    page,
-    setPage,
-  ] = useState(1);
 
   useEffect(() => {
     const controller =
@@ -1293,9 +1354,9 @@ export function AdminProductsView() {
   }, []);
 
   // Volver a la página 1 al cambiar categoría o búsqueda
-  useEffect(() => {
-    setPage(1);
-  }, [categoryFilter, search]);
+  const [page, setPage] = useResettingPage(
+    String(categoryFilter) + '|' + String(search)
+  );
 
   const retryLoad =
     async () => {
@@ -1633,7 +1694,7 @@ export function AdminProductsView() {
   if (loading) {
     return (
       <div className="rounded-[28px] bg-white p-14 text-center">
-        <p className="text-sm text-black/45">
+        <p className="text-sm text-ink/65">
           Cargando productos...
         </p>
       </div>
@@ -1644,7 +1705,7 @@ export function AdminProductsView() {
     return (
       <div className="rounded-[28px] bg-white p-14 text-center">
         <Package
-          className="mx-auto text-black/20"
+          className="mx-auto text-ink/65"
           size={32}
         />
 
@@ -1657,7 +1718,7 @@ export function AdminProductsView() {
           onClick={() => {
             void retryLoad();
           }}
-          className="mt-4 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+          className="mt-4 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-dark"
         >
           Reintentar
         </button>
@@ -1691,7 +1752,7 @@ export function AdminProductsView() {
       <div className="relative mb-5">
         <Search
           size={16}
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-black/30"
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/65"
         />
 
         <input
@@ -1699,7 +1760,7 @@ export function AdminProductsView() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar por nombre, SKU, descripción o categoría..."
-          className="w-full rounded-full border border-black/5 bg-white py-3 pl-11 pr-10 text-sm outline-none transition focus:border-[#4e0611]"
+          className="w-full rounded-full border border-ink/10 bg-white py-3 pl-11 pr-10 text-sm outline-none transition focus:border-brand"
         />
 
         {search && (
@@ -1707,7 +1768,7 @@ export function AdminProductsView() {
             type="button"
             onClick={() => setSearch('')}
             aria-label="Limpiar búsqueda"
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-[#4e0611]"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-ink/65 hover:text-brand"
           >
             <X size={15} />
           </button>
@@ -1726,8 +1787,8 @@ export function AdminProductsView() {
             className={`rounded-full px-4 py-2 text-sm font-medium transition ${
               categoryFilter ===
               'all'
-                ? 'bg-[#4e0611] text-white'
-                : 'bg-white text-black/50 hover:bg-[#f8edef] hover:text-[#4e0611]'
+                ? 'bg-brand text-white'
+                : 'bg-white text-ink/65 hover:bg-brand-soft hover:text-brand'
             }`}
           >
             Todas
@@ -1750,8 +1811,8 @@ export function AdminProductsView() {
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   categoryFilter ===
                   category.id
-                    ? 'bg-[#4e0611] text-white'
-                    : 'bg-white text-black/50 hover:bg-[#f8edef] hover:text-[#4e0611]'
+                    ? 'bg-brand text-white'
+                    : 'bg-white text-ink/65 hover:bg-brand-soft hover:text-brand'
                 }`}
               >
                 {
@@ -1773,7 +1834,7 @@ export function AdminProductsView() {
             activeCategories.length ===
               0
           }
-          className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus size={13} />
 
@@ -1790,15 +1851,15 @@ export function AdminProductsView() {
 
       {/* Barra superior de paginación */}
       {filteredProducts.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-ink/65">
           <span>
             Mostrando{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {startIndex + 1}–
               {Math.min(startIndex + PAGE_SIZE, filteredProducts.length)}
             </strong>{' '}
             de{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {filteredProducts.length}
             </strong>{' '}
             {filteredProducts.length === 1 ? 'producto' : 'productos'}
@@ -1815,7 +1876,7 @@ export function AdminProductsView() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 aria-label="Página anterior"
-                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft size={15} />
               </button>
@@ -1825,7 +1886,7 @@ export function AdminProductsView() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 aria-label="Página siguiente"
-                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronRight size={15} />
               </button>
@@ -1912,15 +1973,15 @@ export function AdminProductsView() {
 
       {/* Barra inferior de paginación */}
       {totalPages > 1 && (
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-ink/65">
           <span>
             Mostrando{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {startIndex + 1}–
               {Math.min(startIndex + PAGE_SIZE, filteredProducts.length)}
             </strong>{' '}
             de{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {filteredProducts.length}
             </strong>{' '}
             productos
@@ -1931,13 +1992,13 @@ export function AdminProductsView() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft size={14} />
               Anterior
             </button>
 
-            <span className="px-1 font-medium text-black/70">
+            <span className="px-1 font-medium text-ink/75">
               {currentPage} / {totalPages}
             </span>
 
@@ -1945,7 +2006,7 @@ export function AdminProductsView() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               Siguiente
               <ChevronRight size={14} />
@@ -1959,11 +2020,11 @@ export function AdminProductsView() {
         !adding && (
           <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-14 text-center">
             <Package
-              className="text-black/20"
+              className="text-ink/65"
               size={32}
             />
 
-            <p className="mt-4 text-sm text-black/45">
+            <p className="mt-4 text-sm text-ink/65">
               {hasActiveFilters
                 ? 'No se encontraron productos con los filtros aplicados.'
                 : 'No hay productos registrados todavía.'}
@@ -1977,7 +2038,7 @@ export function AdminProductsView() {
                   setSearch('');
                   setPage(1);
                 }}
-                className="mt-4 rounded-full bg-[#4e0611] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                className="mt-4 rounded-full bg-brand px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-dark"
               >
                 Limpiar filtros
               </button>

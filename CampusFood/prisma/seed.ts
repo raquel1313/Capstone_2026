@@ -84,6 +84,16 @@ const permissions = [
     descripcion:
       'Consultar clientes bloqueados y levantar bloqueos por faltas.',
   },
+  {
+    nombre: 'VIEW_DASHBOARD',
+    descripcion:
+      'Consultar las métricas operativas del dashboard (pedidos, demanda, productos, tiempos).',
+  },
+  {
+    nombre: 'VIEW_FINANCIALS',
+    descripcion:
+      'Consultar valores de pedidos, ingresos registrados y ticket promedio.',
+  },
 ] as const;
 
 type PermissionName =
@@ -102,6 +112,8 @@ const adminPermissions:
     'REGISTER_PAYMENT',
     'MANAGE_POLLS',
     'MANAGE_PENALTIES',
+      'VIEW_DASHBOARD',
+    'VIEW_FINANCIALS',
   ];
 
 const workerPermissions:
@@ -112,6 +124,7 @@ const workerPermissions:
     'UPDATE_ORDER_STATUS',
     'REGISTER_PAYMENT',
     'MANAGE_PENALTIES',
+      'VIEW_DASHBOARD',
   ];
 
 /*

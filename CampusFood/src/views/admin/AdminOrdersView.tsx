@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import Image from 'next/image';
 import {
@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Clock,
   PackageCheck,
+  Receipt,
   Search,
   ShieldAlert,
   Trash2,
@@ -25,6 +26,9 @@ import type { BlockedUser } from '@/hooks/usePenalties';
 import { formatDateTime } from '@/utils/orderRules';
 
 import logo from '@/assets/images/logo2.png';
+import { useResettingPage } from '@/hooks/useResettingPage';
+import { OrderReceiptModal } from '@/components/OrderReceiptModal';
+import { RetirePaymentModal } from '@/components/admin/RetirePaymentModal';
 
 type StatusFilter = 'todos' | OrderStatus;
 type DatePreset = 'todo' | 'hoy' | 'ayer' | '7dias' | 'rango';
@@ -62,11 +66,11 @@ const LUNCH_START = 11 * 60 + 30;
 const LUNCH_END = 15 * 60;
 
 const SELECT_CLASS =
-  'mt-1 w-full rounded-xl border border-black/5 bg-[#f5f5f3] px-3 py-2 text-sm outline-none transition focus:border-[#4e0611]';
+  'mt-1 w-full rounded-xl border border-ink/10 bg-surface px-3 py-2 text-sm outline-none transition focus:border-brand';
 
 const BADGES: Record<OrderStatus, { label: string; className: string }> = {
-  pendiente: { label: 'Pendiente', className: 'bg-[#f8edef] text-black/50' },
-  listo: { label: 'Listo', className: 'bg-[#f8edef] text-[#4e0611]' },
+  pendiente: { label: 'Pendiente', className: 'bg-brand-soft text-ink/65' },
+  listo: { label: 'Listo', className: 'bg-accent/25 text-ink' },
   retirado: { label: 'Retirado', className: 'bg-emerald-50 text-emerald-700' },
   cancelado: { label: 'Cancelado', className: 'bg-red-50 text-red-700' },
 };
@@ -150,7 +154,7 @@ function CancelPanel({
         Cancelar este pedido
       </p>
 
-      <label className="mt-2 block text-xs text-black/60">
+      <label className="mt-2 block text-xs text-ink/75">
         Motivo (se le muestra al cliente)
         <select
           value={reason}
@@ -158,7 +162,7 @@ function CancelPanel({
             setReason(event.target.value);
             setError(null);
           }}
-          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
+          className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
         >
           {CANCEL_REASONS.map((option) => (
             <option key={option} value={option}>
@@ -177,7 +181,7 @@ function CancelPanel({
           }}
           placeholder="Escribe el motivo"
           aria-label="Motivo de la cancelación"
-          className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
+          className="mt-2 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
         />
       )}
 
@@ -199,7 +203,7 @@ function CancelPanel({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/5"
+          className="rounded-full bg-white px-4 py-2 text-xs font-medium text-ink/65 transition hover:bg-ink/5"
         >
           Volver
         </button>
@@ -254,12 +258,12 @@ function RemoveItemPanel({
       </p>
 
       {item.quantity > 1 && (
-        <label className="mt-2 block text-xs text-black/60">
+        <label className="mt-2 block text-xs text-ink/75">
           Cantidad a quitar
           <select
             value={quantity}
             onChange={(event) => setQuantity(Number(event.target.value))}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
+            className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
           >
             {Array.from({ length: item.quantity }, (_, index) => index + 1).map(
               (value) => (
@@ -272,7 +276,7 @@ function RemoveItemPanel({
         </label>
       )}
 
-      <label className="mt-2 block text-xs text-black/60">
+      <label className="mt-2 block text-xs text-ink/75">
         Motivo (se le muestra al cliente)
         <select
           value={reason}
@@ -280,7 +284,7 @@ function RemoveItemPanel({
             setReason(event.target.value);
             setError(null);
           }}
-          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
+          className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
         >
           {CANCEL_REASONS.map((option) => (
             <option key={option} value={option}>
@@ -299,7 +303,7 @@ function RemoveItemPanel({
           }}
           placeholder="Escribe el motivo"
           aria-label="Motivo"
-          className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
+          className="mt-2 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-red-600"
         />
       )}
 
@@ -327,7 +331,7 @@ function RemoveItemPanel({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/5"
+          className="rounded-full bg-white px-4 py-2 text-xs font-medium text-ink/65 transition hover:bg-ink/5"
         >
           Volver
         </button>
@@ -349,7 +353,7 @@ export function AdminOrdersView({
   orders: Order[];
   updateStatus: (id: string, status: OrderStatus) => void;
   cancelOrder: (id: string, by: CancelledBy, reason: string) => void;
-  retireOrder: (id: string) => void;
+  retireOrder: (id: string, medioPago: string) => Promise<boolean>;
   removeOrderItem: (
     orderId: string,
     itemId: number,
@@ -371,10 +375,12 @@ export function AdminOrdersView({
   const [timeBand, setTimeBand] = useState<TimeBand>('todas');
   const [sortMode, setSortMode] = useState<SortMode>('recientes');
   const [onlyAffected, setOnlyAffected] = useState(false);
-  const [page, setPage] = useState(1);
 
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [retiringId, setRetiringId] = useState<string | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
+  const retiringOrder = orders.find((candidate) => candidate.id === retiringId);
+  const receiptOrder = orders.find((candidate) => candidate.id === receiptId);
   const [removing, setRemoving] = useState<{
     orderId: string;
     itemId: number;
@@ -509,20 +515,9 @@ export function AdminOrdersView({
   const visible = showOnlyAffected ? filtered.filter(isAffected) : filtered;
 
   // Volver a la página 1 cada vez que cambie algún filtro
-  useEffect(() => {
-    setPage(1);
-  }, [
-    statusFilter,
-    monthFilter,
-    datePreset,
-    dateFrom,
-    dateTo,
-    search,
-    productId,
-    timeBand,
-    sortMode,
-    showOnlyAffected,
-  ]);
+  const [page, setPage] = useResettingPage(
+    String(statusFilter) + '|' + String(monthFilter) + '|' + String(datePreset) + '|' + String(dateFrom) + '|' + String(dateTo) + '|' + String(search) + '|' + String(productId) + '|' + String(timeBand) + '|' + String(sortMode) + '|' + String(showOnlyAffected)
+  );
 
   // Cálculos de paginación
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
@@ -572,12 +567,12 @@ export function AdminOrdersView({
           <div className="flex items-center gap-2">
             <ShieldAlert size={16} className="text-red-700" />
 
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-black/50">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink/65">
               Clientes bloqueados
             </h3>
           </div>
 
-          <p className="mt-1 text-xs text-black/40">
+          <p className="mt-1 text-xs text-ink/65">
             Acumularon faltas y no pueden hacer pedidos hasta que termine el
             bloqueo. Levantarlo también borra sus faltas.
           </p>
@@ -586,14 +581,14 @@ export function AdminOrdersView({
             {blockedUsers.map((blocked) => (
               <li
                 key={blocked.username}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#f5f5f3] px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface px-4 py-3"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {blocked.username}
                   </p>
 
-                  <p className="text-xs text-black/45">
+                  <p className="text-xs text-ink/65">
                     Bloqueado hasta el {formatDateTime(blocked.until)}
                   </p>
                 </div>
@@ -606,7 +601,7 @@ export function AdminOrdersView({
                         liftBlock(blocked.username);
                         setLiftingUser(null);
                       }}
-                      className="rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                      className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-dark"
                     >
                       Confirmar
                     </button>
@@ -614,7 +609,7 @@ export function AdminOrdersView({
                     <button
                       type="button"
                       onClick={() => setLiftingUser(null)}
-                      className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/5"
+                      className="rounded-full bg-white px-4 py-2 text-xs font-medium text-ink/65 transition hover:bg-ink/5"
                     >
                       Volver
                     </button>
@@ -623,7 +618,7 @@ export function AdminOrdersView({
                   <button
                     type="button"
                     onClick={() => setLiftingUser(blocked.username)}
-                    className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#4e0611] transition hover:bg-[#f8edef]"
+                    className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-brand transition hover:bg-brand-soft"
                   >
                     Levantar bloqueo
                   </button>
@@ -661,17 +656,17 @@ export function AdminOrdersView({
       {/* Resumen de lo que se está viendo */}
       <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="rounded-2xl bg-white p-4">
-          <p className="text-xs text-black/40">Pedidos</p>
+          <p className="text-xs text-ink/65">Pedidos</p>
           <p className="mt-1 text-xl font-semibold">{activeVisible.length}</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4">
-          <p className="text-xs text-black/40">Por retirar</p>
+          <p className="text-xs text-ink/65">Por retirar</p>
           <p className="mt-1 text-xl font-semibold">{visibleToPickUp}</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4">
-          <p className="text-xs text-black/40">Cancelados</p>
+          <p className="text-xs text-ink/65">Cancelados</p>
           <p className="mt-1 text-xl font-semibold">{visibleCancelled}</p>
         </div>
       </div>
@@ -681,7 +676,7 @@ export function AdminOrdersView({
         {/* Búsqueda */}
         <div className="relative">
           <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-ink/65"
             size={16}
           />
 
@@ -689,7 +684,7 @@ export function AdminOrdersView({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar por número de retiro o correo del estudiante"
-            className="w-full rounded-xl border border-black/5 bg-[#f5f5f3] py-2.5 pl-11 pr-10 text-sm outline-none transition placeholder:text-black/30 focus:border-[#4e0611]"
+            className="w-full rounded-xl border border-ink/10 bg-surface py-2.5 pl-11 pr-10 text-sm outline-none transition placeholder:text-ink/65 focus:border-brand"
           />
 
           {search && (
@@ -697,7 +692,7 @@ export function AdminOrdersView({
               type="button"
               onClick={() => setSearch('')}
               aria-label="Borrar búsqueda"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-black/30 hover:text-[#4e0611]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/65 hover:text-brand"
             >
               <X size={15} />
             </button>
@@ -713,8 +708,8 @@ export function AdminOrdersView({
               onClick={() => setStatusFilter(option)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 statusFilter === option
-                  ? 'bg-[#4e0611] text-white'
-                  : 'bg-[#f5f5f3] text-black/50 hover:bg-[#f8edef] hover:text-[#4e0611]'
+                  ? 'bg-brand text-white'
+                  : 'bg-surface text-ink/65 hover:bg-brand-soft hover:text-brand'
               }`}
             >
               {statusLabel(option, pendingTotal)}
@@ -724,7 +719,7 @@ export function AdminOrdersView({
 
         {/* Fecha y Mes */}
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-black/40">
+          <div className="flex items-center gap-2 text-xs font-medium text-ink/65">
             <Calendar size={13} />
             Fecha y Período
           </div>
@@ -742,21 +737,21 @@ export function AdminOrdersView({
               aria-label="Filtrar por mes"
               className={`rounded-full border px-3.5 py-1.5 text-xs font-medium outline-none transition ${
                 monthFilter !== 'todos'
-                  ? 'border-[#4e0611] bg-[#4e0611] text-white'
-                  : 'border-black/5 bg-[#f5f5f3] text-black/65 hover:bg-[#f8edef] hover:text-[#4e0611]'
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-ink/10 bg-surface text-ink/75 hover:bg-brand-soft hover:text-brand'
               }`}
             >
-              <option value="todos" className="bg-white text-black">
+              <option value="todos" className="bg-white text-ink">
                 Todos los meses
               </option>
               {monthOptions.map((ym) => (
-                <option key={ym} value={ym} className="bg-white text-black">
+                <option key={ym} value={ym} className="bg-white text-ink">
                   {formatMonthLabel(ym)}
                 </option>
               ))}
             </select>
 
-            <span className="text-black/15">|</span>
+            <span className="text-ink/65">|</span>
 
             {DATE_PRESETS.map((preset) => (
               <button
@@ -770,8 +765,8 @@ export function AdminOrdersView({
                 }}
                 className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
                   datePreset === preset.id && monthFilter === 'todos'
-                    ? 'bg-[#4e0611] text-white'
-                    : 'bg-[#f5f5f3] text-black/55 hover:bg-[#f8edef] hover:text-[#4e0611]'
+                    ? 'bg-brand text-white'
+                    : 'bg-surface text-ink/65 hover:bg-brand-soft hover:text-brand'
                 }`}
               >
                 {preset.label}
@@ -781,7 +776,7 @@ export function AdminOrdersView({
 
           {datePreset === 'rango' && (
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="text-xs text-black/40">
+              <label className="text-xs text-ink/65">
                 Desde
                 <input
                   type="date"
@@ -792,7 +787,7 @@ export function AdminOrdersView({
                 />
               </label>
 
-              <label className="text-xs text-black/40">
+              <label className="text-xs text-ink/65">
                 Hasta
                 <input
                   type="date"
@@ -808,7 +803,7 @@ export function AdminOrdersView({
 
         {/* Producto, franja horaria y orden */}
         <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-xs text-black/40">
+          <label className="text-xs text-ink/65">
             Producto
             <select
               value={productId}
@@ -825,7 +820,7 @@ export function AdminOrdersView({
             </select>
           </label>
 
-          <label className="text-xs text-black/40">
+          <label className="text-xs text-ink/65">
             Horario
             <select
               value={timeBand}
@@ -838,7 +833,7 @@ export function AdminOrdersView({
             </select>
           </label>
 
-          <label className="text-xs text-black/40">
+          <label className="text-xs text-ink/65">
             Ordenar por
             <select
               value={sortMode}
@@ -857,7 +852,7 @@ export function AdminOrdersView({
           <button
             type="button"
             onClick={clearFilters}
-            className="flex items-center gap-1.5 text-xs font-medium text-[#4e0611] hover:underline"
+            className="flex items-center gap-1.5 text-xs font-medium text-brand hover:underline"
           >
             <X size={13} />
             Limpiar filtros
@@ -874,7 +869,7 @@ export function AdminOrdersView({
             className="h-14 w-auto animate-bounce"
           />
 
-          <p className="mt-4 text-sm text-black/45">
+          <p className="mt-4 text-sm text-ink/65">
             {orders.length === 0
               ? 'Todavía no hay pedidos.'
               : 'Ningún pedido coincide con los filtros seleccionados.'}
@@ -884,7 +879,7 @@ export function AdminOrdersView({
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-4 rounded-full bg-[#4e0611] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+              className="mt-4 rounded-full bg-brand px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-dark"
             >
               Limpiar filtros
             </button>
@@ -893,14 +888,14 @@ export function AdminOrdersView({
       ) : (
         <>
           {/* Barra superior de paginación estilo correo */}
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-ink/65">
             <span>
               Mostrando{' '}
-              <strong className="font-semibold text-black/75">
+              <strong className="font-semibold text-ink/85">
                 {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, visible.length)}
               </strong>{' '}
               de{' '}
-              <strong className="font-semibold text-black/75">
+              <strong className="font-semibold text-ink/85">
                 {visible.length}
               </strong>{' '}
               pedidos
@@ -917,7 +912,7 @@ export function AdminOrdersView({
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   aria-label="Página anterior"
-                  className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft size={15} />
                 </button>
@@ -927,7 +922,7 @@ export function AdminOrdersView({
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   aria-label="Página siguiente"
-                  className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronRight size={15} />
                 </button>
@@ -949,13 +944,13 @@ export function AdminOrdersView({
                 <div key={order.id} className="rounded-[24px] bg-white p-5">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs text-black/40">Número de retiro</p>
+                      <p className="text-xs text-ink/65">Número de retiro</p>
 
                       <p
                         className={`text-2xl font-bold tracking-widest ${
                           cancelled
-                            ? 'text-black/30 line-through'
-                            : 'text-[#4e0611]'
+                            ? 'text-ink/65 line-through'
+                            : 'text-brand'
                         }`}
                       >
                         {order.id}
@@ -969,7 +964,7 @@ export function AdminOrdersView({
                     </span>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/40">
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink/65">
                     <span className="flex items-center gap-1.5">
                       <Clock size={12} />
 
@@ -1003,13 +998,13 @@ export function AdminOrdersView({
                     </div>
                   )}
 
-                  <ul className="mt-4 space-y-1.5 border-t border-black/5 pt-4">
+                  <ul className="mt-4 space-y-1.5 border-t border-ink/10 pt-4">
                     {order.items.map((item) => (
                       <li key={item.id}>
                         <div className="flex items-center justify-between gap-2 text-sm">
                           <span
                             className={`min-w-0 flex-1 truncate ${
-                              cancelled ? 'text-black/35' : 'text-black/65'
+                              cancelled ? 'text-ink/65' : 'text-ink/75'
                             }`}
                           >
                             {item.quantity}x {item.name}
@@ -1017,7 +1012,7 @@ export function AdminOrdersView({
 
                           <span
                             className={`shrink-0 font-medium ${
-                              cancelled ? 'text-black/35' : ''
+                              cancelled ? 'text-ink/65' : ''
                             }`}
                           >
                             {formatPrice(item.price * item.quantity)}
@@ -1035,7 +1030,7 @@ export function AdminOrdersView({
                                 )
                               }
                               aria-label={`Quitar ${item.name} del pedido`}
-                              className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#f5f5f3] text-black/45 transition hover:bg-red-50 hover:text-red-700"
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface text-ink/65 transition hover:bg-red-50 hover:text-red-700"
                             >
                               <Trash2 size={12} />
                             </button>
@@ -1068,7 +1063,7 @@ export function AdminOrdersView({
                   {(order.adjustments?.length ?? 0) > 0 && (
                     <ul className="mt-3 space-y-0.5">
                       {order.adjustments?.map((adjustment) => (
-                        <li key={adjustment.at} className="text-[11px] text-black/40">
+                        <li key={adjustment.at} className="text-[11px] text-ink/65">
                           Se quitó {adjustment.quantity}x {adjustment.name} (
                           {adjustment.by === 'personal' ? 'casino' : 'cliente'}:{' '}
                           {adjustment.reason})
@@ -1078,14 +1073,14 @@ export function AdminOrdersView({
                   )}
 
                   {cancelled ? (
-                    <div className="mt-4 border-t border-black/5 pt-4">
+                    <div className="mt-4 border-t border-ink/10 pt-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-black/30 line-through">
+                        <span className="text-sm font-semibold text-ink/65 line-through">
                           {formatPrice(order.subtotal)}
                         </span>
 
                         {order.cancelledAt && (
-                          <span className="text-xs text-black/40">
+                          <span className="text-xs text-ink/65">
                             {new Date(order.cancelledAt).toLocaleDateString(
                               'es-CL',
                               { day: 'numeric', month: 'short' }
@@ -1108,10 +1103,19 @@ export function AdminOrdersView({
                       </p>
                     </div>
                   ) : order.status === 'retirado' ? (
-                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-black/5 pt-4">
+                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-ink/10 pt-4">
                       <span className="text-sm font-semibold">
                         {formatPrice(order.subtotal)}
                       </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setReceiptId(order.id)}
+                        className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-ink/75 transition hover:bg-ink/10"
+                      >
+                        <Receipt size={13} />
+                        Comprobante
+                      </button>
 
                       <span className="flex items-center gap-1.5 text-xs text-emerald-700">
                         <PackageCheck size={13} />
@@ -1127,7 +1131,7 @@ export function AdminOrdersView({
                     </div>
                   ) : (
                     <>
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-4">
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-4">
                         <span className="text-sm font-semibold">
                           {formatPrice(order.subtotal)}
                         </span>
@@ -1144,7 +1148,7 @@ export function AdminOrdersView({
                               className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
                                 shortageItems.length > 0
                                   ? 'bg-red-600 text-white hover:bg-red-700'
-                                  : 'bg-[#f5f5f3] text-black/60 hover:bg-red-50 hover:text-red-700'
+                                  : 'bg-surface text-ink/75 hover:bg-red-50 hover:text-red-700'
                               }`}
                             >
                               <Ban size={13} />
@@ -1154,7 +1158,7 @@ export function AdminOrdersView({
                             <button
                               type="button"
                               onClick={() => updateStatus(order.id, 'listo')}
-                              className="rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                              className="rounded-full bg-accent px-4 py-2 text-xs font-bold text-ink transition hover:bg-accent-dark"
                             >
                               Marcar como listo
                             </button>
@@ -1163,8 +1167,17 @@ export function AdminOrdersView({
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
+                              onClick={() => setReceiptId(order.id)}
+                              className="flex items-center gap-1.5 rounded-full bg-surface px-4 py-2 text-xs font-medium text-ink/75 transition hover:bg-ink/10"
+                            >
+                              <Receipt size={13} />
+                              Comprobante
+                            </button>
+
+                            <button
+                              type="button"
                               onClick={() => updateStatus(order.id, 'pendiente')}
-                              className="rounded-full bg-[#f8edef] px-4 py-2 text-xs font-medium text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+                              className="rounded-full bg-brand-soft px-4 py-2 text-xs font-medium text-ink/65 transition hover:bg-ink/10 hover:text-brand"
                             >
                               Revertir
                             </button>
@@ -1176,51 +1189,14 @@ export function AdminOrdersView({
                                   retiringId === order.id ? null : order.id
                                 )
                               }
-                              className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                              className="flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-dark"
                             >
                               <PackageCheck size={13} />
-                              Marcar como retirado
+                              Cobrar y retirar
                             </button>
                           </div>
                         )}
                       </div>
-
-                      {retiringId === order.id && (
-                        <div className="mt-4 rounded-2xl bg-[#f8edef] p-4">
-                          <p className="text-xs font-semibold text-[#4e0611]">
-                            ¿El cliente ya retiró este pedido?
-                          </p>
-
-                          <p className="mt-1 text-xs leading-5 text-black/55">
-                            Se descontará del stock:{' '}
-                            {order.items
-                              .map((item) => `${item.quantity}x ${item.name}`)
-                              .join(', ')}
-                            . Esta acción no se puede revertir.
-                          </p>
-
-                          <div className="mt-3 flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                retireOrder(order.id);
-                                setRetiringId(null);
-                              }}
-                              className="flex-1 rounded-full bg-[#4e0611] py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
-                            >
-                              Sí, fue retirado
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setRetiringId(null)}
-                              className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black/55 transition hover:bg-black/5"
-                            >
-                              Volver
-                            </button>
-                          </div>
-                        </div>
-                      )}
 
                       {cancellingId === order.id && (
                         <CancelPanel
@@ -1241,14 +1217,14 @@ export function AdminOrdersView({
 
           {/* Barra inferior de paginación */}
           {totalPages > 1 && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-ink/65">
               <span>
                 Mostrando{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, visible.length)}
                 </strong>{' '}
                 de{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {visible.length}
                 </strong>{' '}
                 pedidos
@@ -1259,13 +1235,13 @@ export function AdminOrdersView({
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft size={14} />
                   Anterior
                 </button>
 
-                <span className="px-1 font-medium text-black/70">
+                <span className="px-1 font-medium text-ink/75">
                   {currentPage} / {totalPages}
                 </span>
 
@@ -1273,7 +1249,7 @@ export function AdminOrdersView({
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Siguiente
                   <ChevronRight size={14} />
@@ -1282,6 +1258,18 @@ export function AdminOrdersView({
             </div>
           )}
         </>
+      )}
+
+      {retiringOrder && (
+        <RetirePaymentModal
+          order={retiringOrder}
+          onConfirm={(method) => retireOrder(retiringOrder.id, method)}
+          onClose={() => setRetiringId(null)}
+        />
+      )}
+
+      {receiptOrder && (
+        <OrderReceiptModal order={receiptOrder} onClose={() => setReceiptId(null)} />
       )}
     </div>
   );

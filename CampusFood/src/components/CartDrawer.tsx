@@ -12,7 +12,8 @@ import {
 import logo from '@/assets/images/logo2.png';
 import { formatPrice } from '@/data';
 import type { CartItem } from '@/hooks/useCart';
-import { formatDateTime } from '@/utils/orderRules';
+import { useServiceOpen } from '@/hooks/useServiceOpen';
+import { formatDateTime, SERVICE_HOURS_LABEL } from '@/utils/orderRules';
 
 interface CartDrawerProps {
   cart: CartItem[];
@@ -60,8 +61,10 @@ export function CartDrawer({
       item.quantity > limits[item.id]
   );
 
+  const isOpen = useServiceOpen();
+
   const isBlocked = blockedUntil !== null;
-  const cannotOrder = hasSoldOutItem || hasOverLimit || isBlocked;
+  const cannotOrder = hasSoldOutItem || hasOverLimit || isBlocked || !isOpen;
 
   const handleOrder = async () => {
     if (cart.length === 0 || cannotOrder || submitting) {
@@ -97,11 +100,11 @@ export function CartDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-50 flex justify-end bg-ink/25 backdrop-blur-[2px]">
       <div className="flex h-full w-full max-w-md flex-col bg-white p-6 shadow-2xl sm:p-8">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink/65">
               Tu compra
             </p>
 
@@ -114,7 +117,7 @@ export function CartDrawer({
             type="button"
             onClick={handleClose}
             aria-label="Cerrar carrito"
-            className="grid h-10 w-10 place-items-center rounded-full bg-[#f5f5f3] text-black/55"
+            className="grid h-10 w-10 place-items-center rounded-full bg-surface text-ink/65"
           >
             <X size={18} />
           </button>
@@ -122,7 +125,7 @@ export function CartDrawer({
 
         {ordered ? (
           <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-[#f8edef] text-[#4e0611]">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-brand-soft text-brand">
               <CheckCircle2 size={30} />
             </div>
 
@@ -130,27 +133,28 @@ export function CartDrawer({
               ¡Pedido confirmado!
             </h3>
 
-            <div className="mt-4 rounded-2xl bg-[#f5f5f3] px-6 py-4">
-              <p className="text-xs text-black/45">
+            <div className="mt-4 rounded-2xl bg-surface px-6 py-4">
+              <p className="text-xs text-ink/65">
                 Tu código de retiro
               </p>
 
-              <p className="mt-1 text-3xl font-bold tracking-widest text-[#4e0611]">
+              <p className="mt-1 text-3xl font-bold tracking-widest text-brand">
                 {orderNumber}
               </p>
             </div>
 
-            <p className="mt-4 max-w-xs text-sm leading-6 text-black/45">
+            <p className="mt-4 max-w-xs text-sm leading-6 text-ink/65">
               Presenta este código en el mesón cuando tu pedido esté listo.
               El pago se realiza al momento del retiro. Si ya no lo quieres,
-              cancélalo desde Mi perfil: es gratis durante los primeros 5
-              minutos.
+              cancélalo desde Mi perfil mientras siga pendiente. Recuerda
+              retirarlo el mismo día: un pedido listo que no se retira cuenta
+              como falta.
             </p>
 
             <button
               type="button"
               onClick={handleClose}
-              className="mt-8 rounded-full bg-[#4e0611] px-6 py-3 text-sm font-medium text-white hover:bg-[#36040c]"
+              className="mt-8 rounded-full bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand-dark"
             >
               Listo
             </button>
@@ -167,7 +171,7 @@ export function CartDrawer({
               Tu carrito está vacío
             </h3>
 
-            <p className="mt-2 max-w-xs text-sm leading-6 text-black/45">
+            <p className="mt-2 max-w-xs text-sm leading-6 text-ink/65">
               Agrega productos de la cafetería para preparar tu retiro.
             </p>
 
@@ -177,7 +181,7 @@ export function CartDrawer({
                 close();
                 goToOrders();
               }}
-              className="mt-6 rounded-full bg-[#4e0611] px-5 py-3 text-sm font-medium text-white hover:bg-[#36040c]"
+              className="mt-6 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white hover:bg-brand-dark"
             >
               Explorar cafetería
             </button>
@@ -223,9 +227,9 @@ export function CartDrawer({
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center gap-3 border-b border-black/5 pb-4"
+                    className="flex items-center gap-3 border-b border-ink/10 pb-4"
                   >
-                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#f5f5f3]">
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-surface">
                       {item.image && (
                         <Image
                           src={item.image}
@@ -254,7 +258,7 @@ export function CartDrawer({
                         )}
                       </div>
 
-                      <p className="mt-1 text-xs text-black/45">
+                      <p className="mt-1 text-xs text-ink/65">
                         {formatPrice(item.price)}
                         {max !== undefined && !isSoldOut && max <= 5
                           ? ` · Quedan ${max}`
@@ -268,7 +272,7 @@ export function CartDrawer({
                             updateQuantity(item.id, -1)
                           }
                           aria-label={`Quitar una unidad de ${item.name}`}
-                          className="grid h-6 w-6 place-items-center rounded-full bg-[#f5f5f3]"
+                          className="grid h-6 w-6 place-items-center rounded-full bg-surface"
                         >
                           <Minus size={12} />
                         </button>
@@ -286,8 +290,8 @@ export function CartDrawer({
                           aria-label={`Agregar una unidad de ${item.name}`}
                           className={`grid h-6 w-6 place-items-center rounded-full text-white ${
                             isSoldOut || atLimit
-                              ? 'cursor-not-allowed bg-black/25'
-                              : 'bg-[#4e0611]'
+                              ? 'cursor-not-allowed bg-ink/25'
+                              : 'bg-brand'
                           }`}
                         >
                           <Plus size={12} />
@@ -301,7 +305,7 @@ export function CartDrawer({
                         updateQuantity(item.id, -item.quantity)
                       }
                       aria-label={`Eliminar ${item.name} del carrito`}
-                      className="text-black/25 hover:text-red-500"
+                      className="text-ink/65 hover:text-red-500"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -310,11 +314,11 @@ export function CartDrawer({
               })}
             </div>
 
-            <div className="border-t border-black/5 pt-5">
-              <div className="flex justify-between text-sm text-black/50">
+            <div className="border-t border-ink/10 pt-5">
+              <div className="flex justify-between text-sm text-ink/65">
                 <span>Subtotal</span>
 
-                <span className="font-semibold text-[#4e0611]">
+                <span className="font-semibold text-brand">
                   {formatPrice(subtotal)}
                 </span>
               </div>
@@ -323,7 +327,7 @@ export function CartDrawer({
                 type="button"
                 onClick={() => void handleOrder()}
                 disabled={cannotOrder || submitting}
-                className="mt-5 w-full rounded-full bg-[#4e0611] py-4 text-sm font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#4e0611]"
+                className="mt-5 w-full rounded-full bg-accent py-4 text-sm font-bold text-ink transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
               >
                 {submitting ? 'Creando pedido...' : 'Confirmar pedido'}
                 <ArrowRight
@@ -331,6 +335,12 @@ export function CartDrawer({
                   size={16}
                 />
               </button>
+
+              {!isOpen && (
+                <p className="mt-3 text-center text-xs font-medium text-amber-700">
+                  Fuera de horario: el casino atiende de {SERVICE_HOURS_LABEL} (hora de Chile).
+                </p>
+              )}
 
               {orderError && (
                 <p
@@ -341,7 +351,7 @@ export function CartDrawer({
                 </p>
               )}
 
-              <p className="mt-3 text-center text-[11px] text-black/35">
+              <p className="mt-3 text-center text-[11px] text-ink/65">
                 Pago al retirar en el mesón
               </p>
             </div>

@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { prisma } from '@/lib/prisma';
+import { resolveManagedImage } from '@/lib/services/product-images';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,7 @@ type CreateProductBody = {
   idCategoria?: unknown;
   activo?: unknown;
   imagenUrl?: unknown;
+  imagenPath?: unknown;
   temaVisual?: unknown;
 };
 
@@ -190,6 +192,7 @@ export async function GET() {
           stock: true,
           activo: true,
           imagenUrl: true,
+          imagenPath: true,
           temaVisual: true,
           fechaCreacion: true,
           fechaActualizacion: true,
@@ -238,6 +241,10 @@ export async function GET() {
             image:
               product.imagenUrl ??
               undefined,
+
+            imagePath:
+
+              product.imagenPath ?? null,
 
             theme,
             tone: TONE_MAP[theme],
@@ -507,6 +514,37 @@ export async function POST(
     );
   }
 
+  let imageFields: {
+    imagenUrl: string | null;
+    imagenPath: string | null;
+  } = {
+    imagenUrl: parsedImage.value,
+    imagenPath: null,
+  };
+
+  if (
+    body.imagenPath !== undefined &&
+    body.imagenPath !== null
+  ) {
+    const resolved =
+      await resolveManagedImage(
+        body.imagenPath,
+      );
+
+    if (!resolved.ok) {
+      return Response.json(
+        {
+          error: resolved.error,
+        },
+        {
+          status: resolved.status,
+        },
+      );
+    }
+
+    imageFields = resolved.fields;
+  }
+
   try {
     const category =
       await prisma.categoriaProducto.findUnique(
@@ -571,7 +609,9 @@ export async function POST(
           activo:
             body.activo ?? true,
           imagenUrl:
-            parsedImage.value,
+            imageFields.imagenUrl,
+          imagenPath:
+            imageFields.imagenPath,
           temaVisual: theme,
         },
         select: {
@@ -583,6 +623,7 @@ export async function POST(
           stock: true,
           activo: true,
           imagenUrl: true,
+          imagenPath: true,
           temaVisual: true,
           fechaCreacion: true,
           fechaActualizacion: true,
@@ -621,6 +662,10 @@ export async function POST(
           image:
             product.imagenUrl ??
             undefined,
+
+          imagePath:
+
+            product.imagenPath ?? null,
 
           theme,
           tone: TONE_MAP[theme],

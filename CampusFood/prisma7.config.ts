@@ -1,8 +1,8 @@
-
 import dotenv from "dotenv";
 import { defineConfig, env } from "prisma/config";
 
-dotenv.config({ path: ".env.local" });
+// Carga .env.local y .env (la primera definición de cada variable gana).
+dotenv.config({ path: [".env.local", ".env"], quiet: true });
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

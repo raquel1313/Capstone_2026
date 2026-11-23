@@ -39,6 +39,8 @@ export type OrderItem = {
   name: string;
   price: number;
   quantity: number;
+  // Subtotal histórico guardado al pedir (cantidad × precio de ese momento).
+  lineTotal?: number;
 };
 
 /*
@@ -57,6 +59,8 @@ export type OrderAdjustment = {
 export type Order = {
   id: string;
   username: string;
+  // Nombre de quien hizo el pedido (para el comprobante).
+  customerName?: string;
   items: OrderItem[];
   subtotal: number;
   status: OrderStatus;
@@ -75,6 +79,8 @@ export type Order = {
   payment?: {
     amount: number;
     method: string;
+    // REGISTRADO (pagado) o ANULADO.
+    status: string;
     at: string;
   };
 };
@@ -83,7 +89,7 @@ export type OrderNotification = {
   id: string;
   // Código de retiro del pedido al que se refiere el aviso.
   orderId: string;
-  kind: 'ready' | 'cancelled' | 'adjusted';
+  kind: 'ready' | 'cancelled' | 'adjusted' | 'retired';
   message: string;
   read: boolean;
   createdAt: string;

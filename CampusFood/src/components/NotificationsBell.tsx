@@ -51,7 +51,7 @@ function NotificationRow({
   };
 
   return (
-    <div className="relative overflow-hidden border-b border-black/5 last:border-b-0">
+    <div className="relative overflow-hidden border-b border-ink/10 last:border-b-0">
       {/* Fondo rojo que se revela detrás al arrastrar */}
       <div className="absolute inset-0 flex items-center justify-between bg-red-50 px-5 text-red-400">
         <span className="text-xs font-medium">Eliminar</span>
@@ -69,7 +69,7 @@ function NotificationRow({
           if (Math.abs(dragX) < 5) onRead(notification.id);
         }}
         className={`relative flex touch-pan-y items-start gap-3 bg-white px-5 py-3.5 text-left transition-colors hover:bg-black/[0.02] ${
-          notification.read ? '' : 'bg-[#f8edef]'
+          notification.read ? '' : 'bg-brand-soft'
         } ${dragging ? '' : 'transition-transform duration-200 ease-out'}`}
         style={{
           transform: `translateX(${dragX}px)`,
@@ -82,7 +82,7 @@ function NotificationRow({
             <Ban size={16} />
           </div>
         ) : (
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f8edef] text-[#4e0611]">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
             <CheckCircle2 size={16} />
           </div>
         )}
@@ -91,14 +91,14 @@ function NotificationRow({
           <p
             className={`text-sm ${
               notification.read
-                ? 'text-black/60'
-                : 'font-semibold text-black'
+                ? 'text-ink/75'
+                : 'font-semibold text-ink'
             }`}
           >
             {notification.message}
           </p>
 
-          <p className="mt-1 text-[11px] text-black/35">
+          <p className="mt-1 text-[11px] text-ink/65">
             {new Date(notification.createdAt).toLocaleTimeString('es-CL', {
               hour: '2-digit',
               minute: '2-digit',
@@ -107,7 +107,7 @@ function NotificationRow({
         </div>
 
         {!notification.read && (
-          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#4e0611]" />
+          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" />
         )}
       </div>
     </div>
@@ -155,13 +155,13 @@ export function NotificationsBell({
         className={`relative grid h-11 w-11 place-items-center rounded-full transition ${
           dark
             ? 'bg-white/10 text-white/60 hover:bg-white/15 hover:text-white'
-            : 'border border-black/5 bg-white text-black/65'
+            : 'border border-ink/10 bg-white text-ink/75'
         }`}
       >
         <Bell size={18} />
 
         {unreadCount > 0 && (
-          <span className="absolute right-2 top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#4e0611] px-1 text-[9px] font-bold text-white">
+          <span className="absolute right-2 top-2 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold text-ink">
             {unreadCount}
           </span>
         )}
@@ -169,15 +169,15 @@ export function NotificationsBell({
 
       {open && (
         <div className="absolute right-0 top-14 z-50 w-80 overflow-hidden rounded-[24px] bg-white shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
-          <div className="flex items-center justify-between border-b border-black/5 px-5 py-4">
-            <p className="text-sm font-semibold text-black">
+          <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
+            <p className="text-sm font-semibold text-ink">
               Notificaciones
             </p>
 
             {notifications.some((n) => !n.read) && (
               <button
                 onClick={markAllAsRead}
-                className="text-xs font-medium text-[#4e0611]"
+                className="text-xs font-medium text-brand"
               >
                 Marcar todas como leídas
               </button>
@@ -193,7 +193,7 @@ export function NotificationsBell({
                   className="h-10 w-auto animate-bounce"
                 />
 
-                <p className="mt-3 text-xs text-black/40">
+                <p className="mt-3 text-xs text-ink/65">
                   No tienes notificaciones todavía.
                 </p>
               </div>
@@ -210,7 +210,7 @@ export function NotificationsBell({
           </div>
 
           {notifications.length > 0 && (
-            <p className="border-t border-black/5 px-5 py-2.5 text-center text-[10px] text-black/30">
+            <p className="border-t border-ink/10 px-5 py-2.5 text-center text-[10px] text-ink/65">
               Desliza una notificación hacia un lado para eliminarla
             </p>
           )}

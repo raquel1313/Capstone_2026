@@ -16,8 +16,6 @@ import {
  * y se valida en el servidor.
  */
 
-type Tx = Prisma.TransactionClient;
-
 const FAULT_LOOKBACK_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -31,10 +29,6 @@ export type PenaltyView = {
   status: PenaltyStatus;
   blocked?: BlockedUserDto[];
 };
-
-const REASON = {
-  NO_RETIRO: 'no_retirado',
-} as const;
 
 /**
  * Registra como falta los pedidos que quedaron "listo" sin retirar al terminar el día
@@ -60,6 +54,10 @@ export async function syncMissedPickups(userId?: string) {
   `;
 }
 
+// Las faltas por cancelación tardía (CANCELACION_TARDIA) ya no se generan ni cuentan:
+// quedan en la tabla solo como historial y se excluyen siempre con este filtro.
+const COUNTED_FAULTS = { tipo: 'NO_RETIRO' } as const;
+
 const faultSelect = {
   tipo: true,
   fechaFalta: true,
@@ -72,7 +70,7 @@ function toFault(row: FaultRow): Fault {
   return {
     orderId: row.pedido.codigoRetiro,
     at: row.fechaFalta.getTime(),
-    reason: REASON.NO_RETIRO,
+    reason: 'no_retirado',
   };
 }
 
@@ -84,7 +82,12 @@ export async function getPenaltyStatus(userId: string): Promise<PenaltyStatus> {
   await syncMissedPickups(userId);
 
   const rows = await prisma.penalizacion.findMany({
-    where: { idUsuario: userId, anulada: false, fechaFalta: { gte: lookbackDate() } },
+    where: {
+      idUsuario: userId,
+      anulada: false,
+      ...COUNTED_FAULTS,
+      fechaFalta: { gte: lookbackDate() },
+    },
     select: faultSelect,
     orderBy: { fechaFalta: 'asc' },
   });
@@ -119,7 +122,7 @@ export async function listBlockedUsers(): Promise<BlockedUserDto[]> {
   await syncMissedPickups();
 
   const rows = await prisma.penalizacion.findMany({
-    where: { anulada: false, fechaFalta: { gte: lookbackDate() } },
+    where: { anulada: false, ...COUNTED_FAULTS, fechaFalta: { gte: lookbackDate() } },
     select: { idUsuario: true, ...faultSelect },
     orderBy: { fechaFalta: 'asc' },
   });

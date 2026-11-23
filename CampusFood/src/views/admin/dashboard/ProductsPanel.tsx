@@ -1,0 +1,79 @@
+import { formatInt, formatPercent } from '@/lib/dashboard/format';
+import type { ProductsDashboard } from '@/lib/dashboard/types';
+
+import { Card, EmptyData, HorizontalBars } from './ui';
+
+export function ProductsPanel({ data }: { data: ProductsDashboard }) {
+  if (data.totalUnits === 0) {
+    return (
+      <Card title="Productos">
+        <EmptyData />
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-2">
+      <Card
+        title="10 productos más solicitados"
+        subtitle={`Unidades en pedidos no cancelados del período (${formatInt(data.totalUnits)} en total)`}
+      >
+        <HorizontalBars
+          unit="u."
+          rows={data.top.map((product) => ({
+            key: String(product.productId),
+            label: product.name,
+            value: product.units,
+            detail: `${formatPercent(product.units / data.totalUnits)} · ${formatInt(product.orders)} pedidos`,
+          }))}
+        />
+      </Card>
+
+      <Card
+        title="Participación por categoría"
+        subtitle="Porcentaje de las unidades solicitadas en el período"
+      >
+        {data.categories.length === 0 ? (
+          <EmptyData />
+        ) : (
+          <HorizontalBars
+            unit="u."
+            rows={data.categories.map((category) => ({
+              key: category.category,
+              label: category.category,
+              value: category.units,
+              detail: formatPercent(category.share),
+            }))}
+          />
+        )}
+      </Card>
+
+      <Card
+        title="Productos menos solicitados"
+        subtitle="Productos activos con menos unidades en el período (0 = sin solicitudes)"
+        className="xl:col-span-2"
+      >
+        {data.bottom.length === 0 ? (
+          <EmptyData />
+        ) : (
+          <ul className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+            {data.bottom.map((product) => (
+              <li
+                key={product.productId}
+                className="flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2 text-sm"
+              >
+                <span className="truncate">
+                  {product.name}
+                  <span className="ml-2 text-[11px] text-ink/65">{product.category}</span>
+                </span>
+                <span className={`shrink-0 text-xs ${product.units === 0 ? 'text-red-700' : 'text-ink/65'}`}>
+                  {product.units === 0 ? 'Sin solicitudes' : `${formatInt(product.units)} u.`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}

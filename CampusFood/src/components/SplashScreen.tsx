@@ -43,7 +43,7 @@ export function SplashScreen({ done }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#4e0611] transition-all ease-[cubic-bezier(0.4,0,0.2,1)] ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-brand transition-all ease-[cubic-bezier(0.4,0,0.2,1)] ${
         done
           ? 'scale-110 opacity-0 blur-sm duration-[400ms]'
           : 'scale-100 opacity-100 blur-0 duration-200'

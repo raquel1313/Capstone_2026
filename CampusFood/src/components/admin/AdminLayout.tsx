@@ -100,7 +100,8 @@ type AdminLayoutProps = {
 
   retireOrder: (
     id: string,
-  ) => void;
+    medioPago: string,
+  ) => Promise<boolean>;
 
   removeOrderItem: (
     orderId: string,
@@ -309,7 +310,7 @@ export function AdminLayout({
     );
 
   return (
-    <div className="flex min-h-screen bg-[#f8edef]">
+    <div className="flex min-h-screen bg-cream">
       <AdminSidebar
         role={role}
         adminView={
@@ -322,9 +323,9 @@ export function AdminLayout({
       />
 
       <div className="flex-1 pb-20 lg:pb-0">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/5 bg-white/95 px-5 py-5 backdrop-blur-xs sm:px-8 lg:px-10">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-ink/10 bg-white/95 px-5 py-5 backdrop-blur-xs sm:px-8 lg:px-10">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink/65">
               {role ===
               'admin'
                 ? 'Panel administrativo'
@@ -343,18 +344,18 @@ export function AdminLayout({
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-3 sm:flex">
               <div className="text-right">
-                <p className="text-sm font-medium leading-tight text-black/80">
+                <p className="text-sm font-medium leading-tight text-ink/85">
                   {user.name}
                 </p>
 
-                <p className="text-xs leading-tight text-black/40">
+                <p className="text-xs leading-tight text-ink/65">
                   {roleLabel(
                     role,
                   )}
                 </p>
               </div>
 
-              <div className="grid h-10 w-10 place-items-center rounded-full bg-[#4e0611] text-sm font-semibold text-white">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-brand text-sm font-semibold text-white">
                 {getInitials(
                   user.name,
                 )}
@@ -368,7 +369,7 @@ export function AdminLayout({
               }
               title="Cerrar sesión"
               aria-label="Cerrar sesión"
-              className="flex h-10 items-center gap-2 rounded-full bg-[#f8edef] px-4 text-xs font-semibold text-black/60 transition hover:bg-red-50 hover:text-red-700"
+              className="flex h-10 items-center gap-2 rounded-full bg-brand-soft px-4 text-xs font-semibold text-ink/75 transition hover:bg-red-50 hover:text-red-700"
             >
               <LogOut
                 size={16}
@@ -400,9 +401,6 @@ export function AdminLayout({
                 }
                 pollHistory={
                   pollHistory
-                }
-                orders={
-                  orders
                 }
                 adminName={
                   user.name

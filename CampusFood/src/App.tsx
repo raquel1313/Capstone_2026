@@ -113,6 +113,8 @@ function App() {
   const {
     orders,
     error: ordersError,
+    notice: ordersNotice,
+    clearNotice: clearOrdersNotice,
     clearError: clearOrdersError,
     addOrder,
     updateStatus,
@@ -229,6 +231,7 @@ function App() {
     votesError;
 
   const clearToast = () => {
+    clearOrdersNotice();
     clearOrdersError();
     clearMenuError();
     clearVotesError();
@@ -252,7 +255,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#4e0611]">
+      <div className="flex min-h-screen items-center justify-center bg-brand">
         <p className="text-sm text-white/80">
           Cargando...
         </p>
@@ -353,9 +356,10 @@ function App() {
     getStatus();
 
   const handleRetireOrder =
-    (
+    async (
       id: string,
-    ): void => {
+      medioPago: string,
+    ): Promise<boolean> => {
       const order =
         orders.find(
           (
@@ -370,10 +374,10 @@ function App() {
         order.status !==
           'listo'
       ) {
-        return;
+        return false;
       }
 
-      void retireOrder(id);
+      return retireOrder(id, medioPago);
     };
 
   if (
@@ -465,7 +469,8 @@ function App() {
         }
       />
       <ErrorToast
-        message={toastMessage}
+        message={toastMessage ?? ordersNotice}
+        tone={toastMessage ? 'error' : 'success'}
         onClose={clearToast}
       />
       </>
@@ -512,7 +517,7 @@ function App() {
     };
 
   return (
-    <main className="min-h-screen bg-[#f5f5f3] text-[#252525]">
+    <main className="min-h-screen bg-cream text-ink">
       <div className="mx-auto flex min-h-screen max-w-[1440px]">
         <Sidebar
           view={view}
@@ -524,7 +529,7 @@ function App() {
         <section className="relative min-w-0 flex-1 pb-24 lg:pb-8">
           <header className="flex items-center justify-between px-5 py-5 sm:px-8 lg:px-12 lg:py-8">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-black/40">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink/65">
                 {getTodayLabel()}
               </p>
 
@@ -540,7 +545,7 @@ function App() {
                   user.name
                 }{' '}
 
-                <span className="text-[#4e0611]">
+                <span className="text-brand">
                   .
                 </span>
               </h1>
@@ -554,7 +559,7 @@ function App() {
                 }
                 title="Cerrar sesión"
                 aria-label="Cerrar sesión"
-                className="grid h-11 w-11 place-items-center rounded-full border border-black/5 bg-white text-black/40 transition hover:border-[#4e0611]/20 hover:text-[#4e0611]"
+                className="grid h-11 w-11 place-items-center rounded-full border border-ink/10 bg-white text-ink/65 transition hover:border-brand/20 hover:text-brand"
               >
                 <LogOut
                   size={
@@ -589,7 +594,7 @@ function App() {
                   )
                 }
                 aria-label="Abrir carrito"
-                className="relative grid h-11 w-11 place-items-center rounded-full bg-[#4e0611] text-white transition hover:bg-[#36040c]"
+                className="relative grid h-11 w-11 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-dark"
               >
                 <ShoppingCart
                   size={
@@ -599,7 +604,7 @@ function App() {
 
                 {cartCount >
                   0 && (
-                  <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-[10px] font-bold text-[#4e0611]">
+                  <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-[10px] font-bold text-brand">
                     {
                       cartCount
                     }
@@ -730,7 +735,8 @@ function App() {
       </div>
 
       <ErrorToast
-        message={toastMessage}
+        message={toastMessage ?? ordersNotice}
+        tone={toastMessage ? 'error' : 'success'}
         onClose={clearToast}
       />
 

@@ -19,6 +19,8 @@ export type Product = {
   theme: ProductTheme;
   tone: string;
   image?: string;
+  // Ruta del objeto en Supabase Storage (solo para imágenes subidas desde el panel).
+  imagePath?: string | null;
   active: boolean;
   // Calculados en App (stock menos lo comprometido en pedidos). No se guardan.
   available?: number;

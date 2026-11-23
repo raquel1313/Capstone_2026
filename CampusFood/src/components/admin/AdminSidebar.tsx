@@ -93,9 +93,9 @@ export function AdminSidebar({
       : 'Panel operativo';
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white px-5 py-8 lg:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-ink/10 bg-white px-5 py-8 lg:flex">
       <div>
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink/65">
           Casino CampusFood
         </p>
 
@@ -123,8 +123,8 @@ export function AdminSidebar({
                 }
                 className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
                   isActive
-                    ? 'bg-[#4e0611] text-white'
-                    : 'text-black/55 hover:bg-black/5'
+                    ? 'bg-brand text-white shadow-[inset_3px_0_0_#E3A83F]'
+                    : 'text-ink/65 hover:bg-ink/5'
                 }`}
               >
                 <Icon size={17} />
@@ -139,7 +139,7 @@ export function AdminSidebar({
       <button
         type="button"
         onClick={onExit}
-        className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-black/45 transition hover:bg-[#f8edef] hover:text-[#4e0611]"
+        className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-ink/65 transition hover:bg-brand-soft hover:text-brand"
       >
         <LogOut size={17} />
 

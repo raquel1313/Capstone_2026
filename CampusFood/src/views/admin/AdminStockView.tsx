@@ -20,6 +20,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
+import { useResettingPage } from '@/hooks/useResettingPage';
 
 const PAGE_SIZE = 20;
 
@@ -154,10 +155,6 @@ export function AdminStockView() {
     setSearch,
   ] = useState('');
 
-  const [
-    page,
-    setPage,
-  ] = useState(1);
 
   const loadStock =
     useCallback(
@@ -253,9 +250,9 @@ export function AdminStockView() {
   }, [loadStock]);
 
   // Volver a la página 1 al cambiar el término de búsqueda
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
+  const [page, setPage] = useResettingPage(
+    String(search)
+  );
 
   const handleStockChange = (
     productId: number,
@@ -606,7 +603,7 @@ export function AdminStockView() {
             Inventario
           </h2>
 
-          <p className="mt-1 text-xs text-black/45">
+          <p className="mt-1 text-xs text-ink/65">
             Consulta y actualiza
             las existencias de los
             productos.
@@ -619,7 +616,7 @@ export function AdminStockView() {
             void loadStock();
           }}
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-medium text-black/45 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-medium text-ink/65 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw
             size={13}
@@ -637,7 +634,7 @@ export function AdminStockView() {
       <div className="relative mb-5">
         <Search
           size={16}
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-black/30"
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/65"
         />
 
         <input
@@ -648,7 +645,7 @@ export function AdminStockView() {
             )
           }
           placeholder="Buscar por producto, SKU o categoría"
-          className="w-full rounded-full border border-black/5 bg-white py-3 pl-11 pr-10 text-sm outline-none focus:border-[#4e0611]"
+          className="w-full rounded-full border border-ink/10 bg-white py-3 pl-11 pr-10 text-sm outline-none focus:border-brand"
         />
 
         {search && (
@@ -656,7 +653,7 @@ export function AdminStockView() {
             type="button"
             onClick={() => setSearch('')}
             aria-label="Limpiar búsqueda"
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-[#4e0611]"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-ink/65 hover:text-brand"
           >
             <X size={15} />
           </button>
@@ -689,10 +686,10 @@ export function AdminStockView() {
         <div className="rounded-[28px] bg-white p-14 text-center">
           <RefreshCw
             size={28}
-            className="mx-auto animate-spin text-black/20"
+            className="mx-auto animate-spin text-ink/65"
           />
 
-          <p className="mt-4 text-sm text-black/45">
+          <p className="mt-4 text-sm text-ink/65">
             Cargando
             inventario...
           </p>
@@ -701,15 +698,15 @@ export function AdminStockView() {
         <>
           {/* Barra superior de paginación */}
           {filteredProducts.length > 0 && (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-ink/65">
               <span>
                 Mostrando{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {startIndex + 1}–
                   {Math.min(startIndex + PAGE_SIZE, filteredProducts.length)}
                 </strong>{' '}
                 de{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {filteredProducts.length}
                 </strong>{' '}
                 {filteredProducts.length === 1 ? 'producto' : 'productos'}
@@ -726,7 +723,7 @@ export function AdminStockView() {
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     aria-label="Página anterior"
-                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronLeft size={15} />
                   </button>
@@ -736,7 +733,7 @@ export function AdminStockView() {
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                     aria-label="Página siguiente"
-                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronRight size={15} />
                   </button>
@@ -746,7 +743,7 @@ export function AdminStockView() {
           )}
 
           <div className="overflow-hidden rounded-[28px] bg-white">
-            <div className="hidden grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] gap-4 border-b border-black/5 px-5 py-3 text-xs font-medium uppercase tracking-wider text-black/35 md:grid">
+            <div className="hidden grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] gap-4 border-b border-ink/10 px-5 py-3 text-xs font-medium uppercase tracking-wider text-ink/65 md:grid">
               <span>
                 Producto
               </span>
@@ -807,7 +804,7 @@ export function AdminStockView() {
                     key={
                       product.id
                     }
-                    className="grid gap-4 border-b border-black/5 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] md:items-center"
+                    className="grid gap-4 border-b border-ink/10 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_120px_180px_140px] md:items-center"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold">
@@ -816,7 +813,7 @@ export function AdminStockView() {
                         }
                       </p>
 
-                      <p className="mt-1 truncate text-xs text-black/40">
+                      <p className="mt-1 truncate text-xs text-ink/65">
                         {
                           product.sku
                         }
@@ -831,7 +828,7 @@ export function AdminStockView() {
                     </div>
 
                     <div>
-                      <p className="text-xs text-black/40 md:hidden">
+                      <p className="text-xs text-ink/65 md:hidden">
                         Categoría
                       </p>
 
@@ -843,7 +840,7 @@ export function AdminStockView() {
                     </div>
 
                     <div>
-                      <p className="text-xs text-black/40 md:hidden">
+                      <p className="text-xs text-ink/65 md:hidden">
                         Estado
                       </p>
 
@@ -865,7 +862,7 @@ export function AdminStockView() {
                     </div>
 
                     <div>
-                      <p className="mb-1 text-xs text-black/40 md:hidden">
+                      <p className="mb-1 text-xs text-ink/65 md:hidden">
                         Stock
                       </p>
 
@@ -891,7 +888,7 @@ export function AdminStockView() {
                             saving
                           }
                           aria-label={`Stock de ${product.name}`}
-                          className="w-24 rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-center text-sm font-semibold outline-none focus:border-[#4e0611] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="w-24 rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-center text-sm font-semibold outline-none focus:border-brand disabled:cursor-not-allowed disabled:opacity-60"
                         />
 
                         <button
@@ -906,7 +903,7 @@ export function AdminStockView() {
                             !hasChanges
                           }
                           aria-label={`Guardar stock de ${product.name}`}
-                          className="grid h-9 w-9 place-items-center rounded-full bg-[#4e0611] text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-30"
+                          className="grid h-9 w-9 place-items-center rounded-full bg-brand text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-30"
                         >
                           {saving ? (
                             <RefreshCw
@@ -948,12 +945,12 @@ export function AdminStockView() {
                     </div>
 
                     <div>
-                      <p className="text-xs text-black/40 md:hidden">
+                      <p className="text-xs text-ink/65 md:hidden">
                         Última
                         actualización
                       </p>
 
-                      <p className="mt-1 text-xs text-black/45 md:mt-0">
+                      <p className="mt-1 text-xs text-ink/65 md:mt-0">
                         {formatUpdatedAt(
                           product.updatedAt,
                         )}
@@ -969,10 +966,10 @@ export function AdminStockView() {
               <div className="p-14 text-center">
                 <Boxes
                   size={32}
-                  className="mx-auto text-black/20"
+                  className="mx-auto text-ink/65"
                 />
 
-                <p className="mt-4 text-sm text-black/45">
+                <p className="mt-4 text-sm text-ink/65">
                   No se
                   encontraron
                   productos.
@@ -983,15 +980,15 @@ export function AdminStockView() {
 
           {/* Barra inferior de paginación */}
           {totalPages > 1 && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-ink/65">
               <span>
                 Mostrando{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {startIndex + 1}–
                   {Math.min(startIndex + PAGE_SIZE, filteredProducts.length)}
                 </strong>{' '}
                 de{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {filteredProducts.length}
                 </strong>{' '}
                 productos
@@ -1002,13 +999,13 @@ export function AdminStockView() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft size={14} />
                   Anterior
                 </button>
 
-                <span className="px-1 font-medium text-black/70">
+                <span className="px-1 font-medium text-ink/75">
                   {currentPage} / {totalPages}
                 </span>
 
@@ -1016,7 +1013,7 @@ export function AdminStockView() {
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Siguiente
                   <ChevronRight size={14} />
@@ -1041,15 +1038,15 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-[24px] bg-white p-4">
-      <div className="flex items-center justify-between text-black/30">
-        <span className="text-xs text-black/40">
+      <div className="flex items-center justify-between text-ink/65">
+        <span className="text-xs text-ink/65">
           {label}
         </span>
 
         {icon}
       </div>
 
-      <p className="mt-1 text-2xl font-semibold text-[#4e0611]">
+      <p className="mt-1 text-2xl font-semibold text-brand">
         {value}
       </p>
     </div>

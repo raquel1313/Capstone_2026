@@ -60,7 +60,7 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#4e0611] px-5">
+    <div className="flex min-h-screen items-center justify-center bg-brand px-5">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <Image
@@ -173,7 +173,7 @@ export function Login({ onLogin }: LoginProps) {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-full bg-white py-3.5 text-sm font-semibold text-[#252525] transition hover:bg-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-full bg-white py-3.5 text-sm font-semibold text-ink transition hover:bg-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submitting
               ? 'Ingresando...'

@@ -33,7 +33,7 @@ const CATEGORY_CARDS = [
 ];
 
 // Confeti al votar
-const CONFETTI_COLORS = ['#ffffff', '#f8edef', '#e8a0ad', '#c94b5f', '#f2c14e'];
+const CONFETTI_COLORS = ['#ffffff', '#F9F8F6', '#E3A83F', '#4D7157', '#2E5336'];
 
 type ConfettiPiece = {
   id: number;
@@ -135,14 +135,14 @@ export function HomeView({
       {/* Buscador */}
       <button
         onClick={() => openOrders()}
-        className="flex w-full items-center gap-3 rounded-2xl border border-black/5 bg-white px-5 py-3.5 text-left text-sm text-black/40 transition hover:border-black/10"
+        className="flex w-full items-center gap-3 rounded-2xl border border-ink/10 bg-white px-5 py-3.5 text-left text-sm text-ink/65 transition hover:border-ink/15"
       >
         <Search size={17} />
         Buscar snacks, bebidas o platos...
       </button>
 
       {/* Banner promocional compacto */}
-      <section className="relative min-h-[150px] overflow-hidden rounded-[28px] bg-[#4e0611] p-5 text-white sm:min-h-[190px] sm:p-7">
+      <section className="relative min-h-[150px] overflow-hidden rounded-[28px] bg-brand p-5 text-white sm:min-h-[190px] sm:p-7">
         {/* La imagen ocupa todo el alto del banner y se pega a la esquina superior derecha */}
         <Image
           src={brazo}
@@ -178,11 +178,11 @@ export function HomeView({
       {/* Categorías */}
       <section>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-black/70">Categorías</h2>
+          <h2 className="text-sm font-medium text-ink/75">Categorías</h2>
 
           <button
             onClick={() => openOrders()}
-            className="flex items-center gap-0.5 text-sm text-black/45 transition hover:text-[#4e0611]"
+            className="flex items-center gap-0.5 text-sm text-ink/65 transition hover:text-brand"
           >
             Ver todo
             <ChevronRight size={15} />
@@ -196,7 +196,7 @@ export function HomeView({
               {index > 0 && (
                 <span
                   aria-hidden="true"
-                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-black/15 sm:h-2 sm:w-2"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink/15 sm:h-2 sm:w-2"
                 />
               )}
 
@@ -204,7 +204,7 @@ export function HomeView({
                 onClick={() => openOrders(item.category)}
                 className="flex aspect-square min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] motion-reduce:transition-none sm:gap-2 sm:p-2 xl:aspect-auto xl:flex-row xl:justify-start xl:gap-3 xl:px-4 xl:py-3"
               >
-                <span className="block aspect-square w-3/5 shrink-0 overflow-hidden rounded-full bg-[#f5f5f3] xl:w-12">
+                <span className="block aspect-square w-3/5 shrink-0 overflow-hidden rounded-full bg-surface xl:w-12">
                   <Image
                     src={item.image}
                     alt=""
@@ -213,7 +213,7 @@ export function HomeView({
                   />
                 </span>
 
-                <span className="w-full truncate text-center text-[10px] font-medium text-black/70 sm:text-xs xl:w-auto xl:min-w-0 xl:flex-1 xl:text-left xl:text-sm">
+                <span className="w-full truncate text-center text-[10px] font-medium text-ink/75 sm:text-xs xl:w-auto xl:min-w-0 xl:flex-1 xl:text-left xl:text-sm">
                   {item.label}
                 </span>
               </button>
@@ -226,7 +226,7 @@ export function HomeView({
       <section className="rounded-[28px] bg-white p-6 sm:p-7">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink/65">
               Cafetería
             </p>
 
@@ -240,7 +240,7 @@ export function HomeView({
 
           <button
             onClick={() => openOrders()}
-            className="text-sm font-medium text-[#4e0611]"
+            className="text-sm font-medium text-brand"
           >
             Ver más
           </button>
@@ -266,7 +266,7 @@ export function HomeView({
       <section className="rounded-[28px] bg-white p-6 sm:p-7">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink/65">
               Planifica tu semana
             </p>
 
@@ -280,7 +280,7 @@ export function HomeView({
 
           <button
             onClick={() => setView('menu')}
-            className="text-sm font-medium text-[#4e0611]"
+            className="text-sm font-medium text-brand"
           >
             Ver todo
           </button>
@@ -318,8 +318,8 @@ export function HomeView({
                   }}
                   className={`w-full overflow-hidden rounded-3xl border text-left transition ${
                     selectedDay === index
-                      ? 'border-[#4e0611] bg-[#f8edef] shadow-[0_8px_24px_rgba(78,6,17,0.12)]'
-                      : 'border-transparent bg-[#f5f5f3] hover:bg-[#f8edef]'
+                      ? 'border-brand bg-brand-soft shadow-[0_8px_24px_rgba(46,83,54,0.14)]'
+                      : 'border-transparent bg-surface hover:bg-brand-soft'
                   }`}
                 >
                   {representative?.image && (
@@ -334,11 +334,11 @@ export function HomeView({
 
                   <div className="p-5">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-black/50">
+                      <span className="text-sm font-semibold text-ink/65">
                         {getDayLabel(item.date)}
                       </span>
 
-                      <span className="grid h-8 w-8 place-items-center rounded-full bg-[#4e0611]/10 text-sm font-semibold text-[#4e0611]">
+                      <span className="grid h-8 w-8 place-items-center rounded-full bg-brand/10 text-sm font-semibold text-brand">
                         {getDayNumber(item.date)}
                       </span>
                     </div>
@@ -347,13 +347,13 @@ export function HomeView({
                       {representative?.name ?? 'Sin platos cargados'}
                     </p>
 
-                    <p className="mt-1 line-clamp-2 text-sm leading-5 text-black/45">
+                    <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink/65">
                       {representative?.detail}
                     </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {item.dishes.length > 1 && (
-                        <span className="rounded-full bg-black/5 px-2.5 py-1 text-[10px] font-semibold text-black/50">
+                        <span className="rounded-full bg-ink/5 px-2.5 py-1 text-[10px] font-semibold text-ink/65">
                           +{item.dishes.length - 1} opción{item.dishes.length - 1 === 1 ? '' : 'es'} más
                         </span>
                       )}
@@ -389,7 +389,7 @@ export function HomeView({
                             setOpenDay(null);
                           }}
                           className={`absolute left-0 top-0 grid h-9 w-9 place-items-center rounded-full bg-white text-lg shadow-[0_4px_14px_rgba(0,0,0,0.18)] transition duration-300 ease-out hover:scale-110 motion-reduce:transition-none ${
-                            isMine ? 'ring-2 ring-[#4e0611]' : ''
+                            isMine ? 'ring-2 ring-brand' : ''
                           } ${
                             isOpen
                               ? 'pointer-events-auto opacity-100'
@@ -419,7 +419,7 @@ export function HomeView({
 
       {/* Votación */}
       <>
-        <section className="rounded-[28px] bg-[#4e0611] p-6 text-white sm:p-8">
+        <section className="rounded-[28px] bg-brand p-6 text-white sm:p-8">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/70">
             <Vote size={12} />
             Votación
@@ -466,7 +466,7 @@ export function HomeView({
                           aria-pressed={isSelected}
                           className={`flex w-full items-center justify-between rounded-full border px-5 py-3 text-left text-sm font-medium transition ${
                             isSelected
-                              ? 'border-white bg-white text-[#4e0611]'
+                              ? 'border-white bg-white text-brand'
                               : 'border-white/15 bg-white/10 text-white/80 hover:bg-white/15'
                           }`}
                         >
@@ -475,7 +475,7 @@ export function HomeView({
                           {isSelected && (
                             <Check
                               size={16}
-                              className="text-[#4e0611]"
+                              className="text-brand"
                             />
                           )}
                         </button>
@@ -486,7 +486,7 @@ export function HomeView({
                   <button
                     onClick={handleVote}
                     disabled={!selectedOption}
-                    className="mt-6 w-full rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#4e0611] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:px-10"
+                    className="mt-6 w-full rounded-full bg-white px-5 py-3 text-sm font-semibold text-brand transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:px-10"
                   >
                     Votar ahora
                   </button>

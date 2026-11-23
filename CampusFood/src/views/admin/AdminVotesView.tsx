@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import {
   Calendar,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import type { VotePoll } from '@/hooks/useVotes';
+import { useResettingPage } from '@/hooks/useResettingPage';
 
 const HISTORY_PAGE_SIZE = 10;
 
@@ -73,23 +74,23 @@ function CreatePollForm({
 
   return (
     <div className="rounded-[24px] bg-white p-6">
-      <p className="text-xs font-medium uppercase tracking-wider text-black/40">
+      <p className="text-xs font-medium uppercase tracking-wider text-ink/65">
         Nueva encuesta
       </p>
 
       <div className="mt-4 space-y-4">
         <div>
-          <label className="text-xs text-black/40">Pregunta</label>
+          <label className="text-xs text-ink/65">Pregunta</label>
 
           <input
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
         <div>
-          <label className="text-xs text-black/40">Alternativas</label>
+          <label className="text-xs text-ink/65">Alternativas</label>
 
           <div className="mt-1.5 space-y-2">
             {options.map((option, index) => (
@@ -98,13 +99,13 @@ function CreatePollForm({
                   value={option}
                   onChange={(event) => updateOption(index, event.target.value)}
                   placeholder={`Alternativa ${index + 1}`}
-                  className="w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+                  className="w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
                 />
 
                 {options.length > 2 && (
                   <button
                     onClick={() => removeOption(index)}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f8edef] text-black/40 transition hover:bg-red-50 hover:text-red-500"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-soft text-ink/65 transition hover:bg-red-50 hover:text-red-500"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -115,7 +116,7 @@ function CreatePollForm({
 
           <button
             onClick={addOption}
-            className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[#4e0611] hover:text-[#36040c]"
+            className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand-dark"
           >
             <Plus size={13} /> Agregar alternativa
           </button>
@@ -123,11 +124,11 @@ function CreatePollForm({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-black/40">Fecha de inicio</label>
+            <label className="text-xs text-ink/65">Fecha de inicio</label>
 
             <div className="relative mt-1">
               <Calendar
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-black/30"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65"
                 size={14}
               />
 
@@ -135,17 +136,17 @@ function CreatePollForm({
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
-                className="w-full rounded-xl border border-black/5 bg-[#f8edef] py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4e0611]"
+                className="w-full rounded-xl border border-ink/10 bg-brand-soft py-2 pl-9 pr-3 text-sm outline-none focus:border-brand"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-black/40">Fecha de término</label>
+            <label className="text-xs text-ink/65">Fecha de término</label>
 
             <div className="relative mt-1">
               <Calendar
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-black/30"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65"
                 size={14}
               />
 
@@ -153,7 +154,7 @@ function CreatePollForm({
                 type="date"
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
-                className="w-full rounded-xl border border-black/5 bg-[#f8edef] py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4e0611]"
+                className="w-full rounded-xl border border-ink/10 bg-brand-soft py-2 pl-9 pr-3 text-sm outline-none focus:border-brand"
               />
             </div>
           </div>
@@ -165,14 +166,14 @@ function CreatePollForm({
       <div className="mt-5 flex gap-2">
         <button
           onClick={handleSubmit}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#4e0611] py-2.5 text-xs font-semibold text-white hover:bg-[#36040c]"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-xs font-semibold text-white hover:bg-brand-dark"
         >
           <Check size={14} /> Crear encuesta
         </button>
 
         <button
           onClick={onCancel}
-          className="rounded-full bg-[#f8edef] px-4 py-2.5 text-xs font-medium text-black/50 hover:bg-black/10"
+          className="rounded-full bg-brand-soft px-4 py-2.5 text-xs font-medium text-ink/65 hover:bg-ink/10"
         >
           Cancelar
         </button>
@@ -214,14 +215,14 @@ function PollResults({
             <span
               className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                 isOpen
-                  ? 'bg-[#e8eee7] text-[#4d7157]'
-                  : 'bg-black/5 text-black/45'
+                  ? 'bg-brand-soft text-brand'
+                  : 'bg-ink/5 text-ink/65'
               }`}
             >
               {isOpen ? 'Abierta' : 'Cerrada'}
             </span>
 
-            <span className="text-xs text-black/40">
+            <span className="text-xs text-ink/65">
               {new Date(poll.startDate + 'T00:00:00').toLocaleDateString(
                 'es-CL',
                 {
@@ -242,7 +243,7 @@ function PollResults({
 
           <h3 className="mt-3 text-lg font-semibold">{poll.question}</h3>
 
-          <p className="mt-1 text-xs text-black/40">
+          <p className="mt-1 text-xs text-ink/65">
             {totalVotes} voto{totalVotes !== 1 ? 's' : ''} en total
           </p>
         </div>
@@ -252,7 +253,7 @@ function PollResults({
             <button
               onClick={onClose}
               title="Cerrar votación"
-              className="grid h-9 w-9 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+              className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10 hover:text-brand"
             >
               <Lock size={14} />
             </button>
@@ -260,7 +261,7 @@ function PollResults({
             <button
               onClick={onReopen}
               title="Reabrir votación"
-              className="grid h-9 w-9 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+              className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10 hover:text-brand"
             >
               <Unlock size={14} />
             </button>
@@ -276,7 +277,7 @@ function PollResults({
           ) : (
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="grid h-9 w-9 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500"
+              className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-red-50 hover:text-red-500"
             >
               <Trash2 size={14} />
             </button>
@@ -285,7 +286,7 @@ function PollResults({
           {confirmingDelete && (
             <button
               onClick={() => setConfirmingDelete(false)}
-              className="grid h-9 w-9 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10"
+              className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10"
             >
               <X size={14} />
             </button>
@@ -307,21 +308,21 @@ function PollResults({
               <div className="flex items-center justify-between text-sm">
                 <span
                   className={`font-medium ${
-                    isWinner ? 'text-[#4e0611]' : 'text-black/70'
+                    isWinner ? 'text-brand' : 'text-ink/75'
                   }`}
                 >
                   {option.label}
                 </span>
 
-                <span className="text-black/45">
+                <span className="text-ink/65">
                   {option.votes} · {percentage}%
                 </span>
               </div>
 
-              <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[#f8edef]">
+              <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-brand-soft">
                 <div
                   className={`h-full rounded-full transition-all ${
-                    isWinner ? 'bg-[#4e0611]' : 'bg-black/15'
+                    isWinner ? 'bg-brand' : 'bg-ink/15'
                   }`}
                   style={{ width: `${percentage}%` }}
                 />
@@ -346,7 +347,6 @@ function formatShort(date: string) {
 function PollHistory({ polls }: { polls: VotePoll[] }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [page, setPage] = useState(1);
 
   const invalidRange = Boolean(from && to && to < from);
 
@@ -359,9 +359,9 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
   });
 
   // Volver a la página 1 al cambiar el rango de fechas
-  useEffect(() => {
-    setPage(1);
-  }, [from, to]);
+  const [page, setPage] = useResettingPage(
+    String(from) + '|' + String(to)
+  );
 
   // Cálculos de paginación
   const totalPages = Math.max(1, Math.ceil(filtered.length / HISTORY_PAGE_SIZE));
@@ -371,28 +371,28 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
 
   return (
     <div className="mt-8">
-      <div className="flex items-center gap-2 text-sm font-semibold text-[#4e0611]">
+      <div className="flex items-center gap-2 text-sm font-semibold text-brand">
         <History size={16} /> Historial de encuestas
       </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-3 rounded-[24px] bg-white p-4">
         <div>
-          <label className="text-xs text-black/40">Desde</label>
+          <label className="text-xs text-ink/65">Desde</label>
           <input
             type="date"
             value={from}
             onChange={(event) => setFrom(event.target.value)}
-            className="mt-1 block rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 block rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
         <div>
-          <label className="text-xs text-black/40">Hasta</label>
+          <label className="text-xs text-ink/65">Hasta</label>
           <input
             type="date"
             value={to}
             onChange={(event) => setTo(event.target.value)}
-            className="mt-1 block rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 block rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
@@ -402,13 +402,13 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
               setFrom('');
               setTo('');
             }}
-            className="rounded-full bg-[#f8edef] px-4 py-2 text-xs font-medium text-black/50 hover:bg-black/10"
+            className="rounded-full bg-brand-soft px-4 py-2 text-xs font-medium text-ink/65 hover:bg-ink/10"
           >
             Limpiar filtro
           </button>
         )}
 
-        <p className="ml-auto text-xs text-black/40">
+        <p className="ml-auto text-xs text-ink/65">
           {filtered.length} de {polls.length} encuesta{polls.length !== 1 ? 's' : ''}
         </p>
       </div>
@@ -421,14 +421,14 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
 
       {/* Barra superior de paginación */}
       {filtered.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-ink/65">
           <span>
             Mostrando{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {startIndex + 1}–{Math.min(startIndex + HISTORY_PAGE_SIZE, filtered.length)}
             </strong>{' '}
             de{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {filtered.length}
             </strong>{' '}
             {filtered.length === 1 ? 'encuesta' : 'encuestas'}
@@ -445,7 +445,7 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 aria-label="Página anterior"
-                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft size={15} />
               </button>
@@ -455,7 +455,7 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 aria-label="Página siguiente"
-                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronRight size={15} />
               </button>
@@ -474,11 +474,11 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
 
           return (
             <div key={poll.id} className="rounded-[24px] bg-white p-4">
-              <p className="text-xs text-black/40">
+              <p className="text-xs text-ink/65">
                 {formatShort(poll.startDate)} — {formatShort(poll.endDate)}
               </p>
               <p className="mt-1 font-semibold">{poll.question}</p>
-              <p className="mt-1 text-xs text-black/45">
+              <p className="mt-1 text-xs text-ink/65">
                 {total} voto{total !== 1 ? 's' : ''}
                 {total > 0 && top ? ` · Ganó: ${top.label} (${top.votes})` : ''}
               </p>
@@ -487,7 +487,7 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
         })}
 
         {filtered.length === 0 && (
-          <div className="rounded-[24px] bg-white p-8 text-center text-sm text-black/45">
+          <div className="rounded-[24px] bg-white p-8 text-center text-sm text-ink/65">
             {polls.length === 0
               ? 'Aún no hay encuestas anteriores.'
               : 'No hay encuestas en ese rango de fechas.'}
@@ -497,14 +497,14 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
 
       {/* Barra inferior de paginación */}
       {totalPages > 1 && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-ink/65">
           <span>
             Mostrando{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {startIndex + 1}–{Math.min(startIndex + HISTORY_PAGE_SIZE, filtered.length)}
             </strong>{' '}
             de{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {filtered.length}
             </strong>{' '}
             encuestas
@@ -515,13 +515,13 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft size={14} />
               Anterior
             </button>
 
-            <span className="px-1 font-medium text-black/70">
+            <span className="px-1 font-medium text-ink/75">
               {currentPage} / {totalPages}
             </span>
 
@@ -529,7 +529,7 @@ function PollHistory({ polls }: { polls: VotePoll[] }) {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               Siguiente
               <ChevronRight size={14} />
@@ -584,14 +584,14 @@ export function AdminVotesView({
   return (
     <div>
       <div className="mb-5 flex items-center justify-between">
-        <p className="text-sm text-black/45">
+        <p className="text-sm text-ink/65">
           Solo puede existir una encuesta activa a la vez. Crear una nueva
           reemplaza la actual.
         </p>
 
         <button
           onClick={() => setCreatingNew(true)}
-          className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+          className="flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-dark"
         >
           <RotateCcw size={13} /> Nueva encuesta
         </button>
