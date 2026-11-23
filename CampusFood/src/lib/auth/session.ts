@@ -93,3 +93,22 @@ export async function requireSession(): Promise<SessionResult> {
     return fail(500, 'Error interno al verificar la sesión.', 'AUTHORIZATION_ERROR');
   }
 }
+
+/**
+ * Igual que requireSession, pero además exige un permiso. Responde 401 si no hay sesión
+ * y 403 si el usuario (por ejemplo un estudiante) no tiene el permiso. La autorización
+ * siempre se valida aquí, en el servidor: ocultar botones en la pantalla no protege nada.
+ */
+export async function requireSessionWithPermission(permission: string): Promise<SessionResult> {
+  const result = await requireSession();
+
+  if (!result.ok) {
+    return result;
+  }
+
+  if (!result.session.permissions.has(permission)) {
+    return fail(403, 'No tienes permiso para realizar esta operación.', 'PERMISSION_DENIED');
+  }
+
+  return result;
+}

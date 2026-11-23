@@ -39,6 +39,7 @@ async function request(
 export function useOrders(enabled: boolean) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -89,7 +90,10 @@ export function useOrders(enabled: boolean) {
   };
 
   // Ejecuta una acción sobre un pedido y deja el mensaje de error visible si falla.
-  const runAction = async (code: string, body: Record<string, unknown>) => {
+  const runAction = async (
+    code: string,
+    body: Record<string, unknown>
+  ): Promise<boolean> => {
     try {
       const data = await request(`/api/orders/${encodeURIComponent(code)}`, {
         method: 'PATCH',
@@ -101,6 +105,8 @@ export function useOrders(enabled: boolean) {
       }
 
       setError(null);
+
+      return true;
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -110,6 +116,8 @@ export function useOrders(enabled: boolean) {
 
       // El estado pudo cambiar en otro equipo: se vuelve a cargar.
       await refreshOrders();
+
+      return false;
     }
   };
 
@@ -147,8 +155,15 @@ export function useOrders(enabled: boolean) {
   };
 
   // Quién entrega queda registrado por el servidor (usuario de la sesión).
-  const retireOrder = async (id: string) => {
-    await runAction(id, { action: 'retire' });
+  // El monto no se envía: el servidor lo lee del pedido guardado.
+  const retireOrder = async (id: string, medioPago: string): Promise<boolean> => {
+    const ok = await runAction(id, { action: 'retire', medioPago });
+
+    if (ok) {
+      setNotice('Pago registrado y pedido entregado correctamente.');
+    }
+
+    return ok;
   };
 
   const removeOrderItem = async (
@@ -167,10 +182,13 @@ export function useOrders(enabled: boolean) {
   };
 
   const clearError = () => setError(null);
+  const clearNotice = () => setNotice(null);
 
   return {
     orders,
     error,
+    notice,
+    clearNotice,
     clearError,
     refreshOrders,
     addOrder,

@@ -6,6 +6,8 @@ import {
   formatPrice,
   type Product,
 } from '@/data';
+import { useServiceOpen } from '@/hooks/useServiceOpen';
+import { SERVICE_HOURS_LABEL } from '@/utils/orderRules';
 
 interface OrdersViewProps {
   products: Product[];
@@ -22,9 +24,8 @@ export function OrdersView({
 }: OrdersViewProps) {
   const [query, setQuery] = useState('');
 
-  // 1. Validación de horario comercial (07:00 AM a 22:00 PM)
-  const horaActual = new Date().getHours();
-  const isOpen = horaActual >= 7 && horaActual < 22;
+  // Horario de atención en hora de Chile (el servidor también lo valida)
+  const isOpen = useServiceOpen();
 
   const categories = Array.from(
     new Set(products.map((product) => product.category))
@@ -55,7 +56,7 @@ export function OrdersView({
   return (
     <div className="pb-5">
       <div className="mb-6">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-black/40">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink/65">
           Compra rápida
         </p>
 
@@ -63,7 +64,7 @@ export function OrdersView({
           Cafetería
         </h2>
 
-        <p className="mt-2 max-w-md text-sm leading-6 text-black/50">
+        <p className="mt-2 max-w-md text-sm leading-6 text-ink/65">
           Elige tus productos, confirma tu pedido y retíralo en el mesón.
         </p>
       </div>
@@ -77,7 +78,7 @@ export function OrdersView({
               Servicio fuera de horario
             </p>
             <p className="text-xs mt-0.5 text-amber-900/80">
-              El horario de atención es de 07:00 AM a 22:00 PM. Puedes explorar los productos, pero la opción de agregar al carrito está deshabilitada por el momento.
+              El horario de atención es de {SERVICE_HOURS_LABEL} (hora de Chile). Puedes explorar los productos, pero la opción de agregar al carrito está deshabilitada por el momento.
             </p>
           </div>
         </div>
@@ -85,7 +86,7 @@ export function OrdersView({
 
       <div className="relative mb-4 max-w-xl">
         <Search
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-black/35"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-ink/65"
           size={17}
         />
 
@@ -95,7 +96,7 @@ export function OrdersView({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Buscar snacks, bebidas..."
           aria-label="Buscar productos"
-          className="w-full rounded-2xl border border-black/5 bg-white py-4 pl-11 pr-4 text-sm outline-none transition placeholder:text-black/35 focus:border-[#4e0611]"
+          className="w-full rounded-2xl border border-ink/10 bg-white py-4 pl-11 pr-4 text-sm outline-none transition placeholder:text-ink/65 focus:border-brand"
         />
       </div>
 
@@ -106,8 +107,8 @@ export function OrdersView({
           aria-pressed={category === null}
           className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
             category === null
-              ? 'bg-[#4e0611] text-white'
-              : 'bg-white font-medium text-black/55 hover:bg-black/5'
+              ? 'bg-brand text-white'
+              : 'bg-white font-medium text-ink/65 hover:bg-ink/5'
           }`}
         >
           Todo
@@ -121,8 +122,8 @@ export function OrdersView({
             aria-pressed={category === name}
             className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
               category === name
-                ? 'bg-[#4e0611] text-white'
-                : 'bg-white font-medium text-black/55 hover:bg-black/5'
+                ? 'bg-brand text-white'
+                : 'bg-white font-medium text-ink/65 hover:bg-ink/5'
             }`}
           >
             {name}
@@ -131,7 +132,7 @@ export function OrdersView({
       </div>
 
       {sortedProducts.length === 0 ? (
-        <p className="text-sm text-black/45">
+        <p className="text-sm text-ink/65">
           No hay productos disponibles para esta búsqueda.
         </p>
       ) : (
@@ -162,14 +163,14 @@ export function OrdersView({
                   )}
 
                   {isSoldOut && (
-                    <div className="absolute inset-0 grid place-items-center bg-black/30">
+                    <div className="absolute inset-0 grid place-items-center bg-ink/30">
                       <span className="rounded-full bg-red-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
                         Agotado
                       </span>
                     </div>
                   )}
 
-                  <div className="absolute left-4 top-4 rounded-full bg-white/65 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-black/50">
+                  <div className="absolute left-4 top-4 rounded-full bg-white/65 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink/65">
                     {product.category}
                   </div>
                 </div>
@@ -179,7 +180,7 @@ export function OrdersView({
                     {product.name}
                   </p>
 
-                  <p className="mt-1 text-xs text-black/45">
+                  <p className="mt-1 text-xs text-ink/65">
                     {product.description}
                   </p>
 
@@ -192,7 +193,7 @@ export function OrdersView({
                       type="button"
                       onClick={() => addToCart(product)}
                       disabled={isButtonDisabled}
-                      title={!isOpen ? "Casino cerrado (Horario: 07:00 a 22:00)" : undefined}
+                      title={!isOpen ? `Casino cerrado (Horario: ${SERVICE_HOURS_LABEL})` : undefined}
                       aria-label={
                         !isOpen
                           ? 'Servicio fuera de horario'
@@ -202,8 +203,8 @@ export function OrdersView({
                       }
                       className={`grid h-9 w-9 place-items-center rounded-full text-white transition ${
                         isButtonDisabled
-                          ? 'cursor-not-allowed bg-black/20'
-                          : 'bg-[#252525] hover:bg-[#4e0611]'
+                          ? 'cursor-not-allowed bg-ink/20'
+                          : 'bg-ink hover:bg-brand'
                       }`}
                     >
                       <Plus size={16} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 
 import {
@@ -19,6 +19,7 @@ import {
 import type { Dish, LunchDay } from '@/data';
 import { getDayLabel, getFullDateLabel } from '@/data';
 import { REACTIONS } from '@/hooks/useReactions';
+import { useResettingPage } from '@/hooks/useResettingPage';
 
 // Múltiplo de 3 para que la grilla de 3 columnas quede simétrica
 const PAGE_SIZE = 18;
@@ -87,15 +88,15 @@ function ReactionMetrics({
 
   if (total === 0) {
     return (
-      <p className="mt-3 text-xs text-black/35">
+      <p className="mt-3 text-xs text-ink/65">
         Sin reacciones todavía.
       </p>
     );
   }
 
   return (
-    <div className="mt-3 border-t border-black/5 pt-3">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-black/35">
+    <div className="mt-3 border-t border-ink/10 pt-3">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-ink/65">
         Reacciones del día ({total})
       </p>
 
@@ -114,18 +115,18 @@ function ReactionMetrics({
                 {emoji}
               </span>
 
-              <span className="w-16 shrink-0 truncate text-black/45">
+              <span className="w-16 shrink-0 truncate text-ink/65">
                 {label}
               </span>
 
-              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#f8edef]">
+              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-brand-soft">
                 <div
-                  className="h-full rounded-full bg-[#4e0611]"
+                  className="h-full rounded-full bg-brand"
                   style={{ width: `${percentage}%` }}
                 />
               </div>
 
-              <span className="w-6 shrink-0 text-right font-medium text-black/50">
+              <span className="w-6 shrink-0 text-right font-medium text-ink/65">
                 {count}
               </span>
             </div>
@@ -158,10 +159,10 @@ function DishForm({
   };
 
   return (
-    <div className="min-w-0 rounded-2xl border-2 border-dashed border-[#4e0611]/40 bg-[#f8edef]/60 p-4">
+    <div className="min-w-0 rounded-2xl border-2 border-dashed border-brand/40 bg-brand-soft/60 p-4">
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-black/40">
+          <label className="text-xs text-ink/65">
             Nombre del plato
           </label>
 
@@ -174,12 +175,12 @@ function DishForm({
               })
             }
             placeholder="Ej. Pollo al horno"
-            className="mt-1 w-full min-w-0 rounded-xl border border-black/5 bg-white px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full min-w-0 rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
         <div>
-          <label className="text-xs text-black/40">
+          <label className="text-xs text-ink/65">
             Acompañamientos / detalle
           </label>
 
@@ -193,12 +194,12 @@ function DishForm({
             }
             rows={2}
             placeholder="Ej. Arroz primavera · Ensalada fresca"
-            className="mt-1 w-full min-w-0 resize-none rounded-xl border border-black/5 bg-white px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full min-w-0 resize-none rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
         <div>
-          <label className="text-xs text-black/40">
+          <label className="text-xs text-ink/65">
             Color de fondo
           </label>
 
@@ -214,7 +215,7 @@ function DishForm({
                 }
                 className={`h-7 w-7 rounded-full ${option.value} transition ${
                   form.color === option.value
-                    ? 'ring-2 ring-[#4e0611] ring-offset-2'
+                    ? 'ring-2 ring-brand ring-offset-2'
                     : ''
                 }`}
                 title={option.label}
@@ -224,7 +225,7 @@ function DishForm({
         </div>
 
         <div>
-          <label className="text-xs text-black/40">
+          <label className="text-xs text-ink/65">
             URL de imagen (opcional)
           </label>
 
@@ -237,11 +238,11 @@ function DishForm({
               })
             }
             placeholder="https://..."
-            className="mt-1 w-full min-w-0 rounded-xl border border-black/5 bg-white px-3 py-2 text-sm outline-none focus:border-[#4e0611]"
+            className="mt-1 w-full min-w-0 rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-black/50">
+        <label className="flex items-center gap-2 text-xs text-ink/65">
           <input
             type="checkbox"
             checked={form.soldOut}
@@ -267,7 +268,7 @@ function DishForm({
       <div className="mt-3 flex gap-2">
         <button
           onClick={handleSave}
-          className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#4e0611] py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+          className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2 text-xs font-semibold text-white transition hover:bg-brand-dark"
         >
           <Check size={13} />
           Guardar plato
@@ -275,7 +276,7 @@ function DishForm({
 
         <button
           onClick={onCancel}
-          className="shrink-0 rounded-full bg-white px-3 py-2 text-xs font-medium text-black/50 transition hover:bg-[#f8edef] hover:text-[#4e0611]"
+          className="shrink-0 rounded-full bg-white px-3 py-2 text-xs font-medium text-ink/65 transition hover:bg-brand-soft hover:text-brand"
         >
           Cancelar
         </button>
@@ -322,7 +323,7 @@ function DishRow({
 
   return (
     <div
-      className={`flex min-w-0 items-center gap-2 rounded-2xl border border-black/5 p-3 sm:gap-3 ${
+      className={`flex min-w-0 items-center gap-2 rounded-2xl border border-ink/10 p-3 sm:gap-3 ${
         dish.soldOut ? 'bg-red-50/40' : 'bg-white'
       }`}
     >
@@ -351,7 +352,7 @@ function DishRow({
           )}
         </div>
 
-        <p className="truncate text-xs text-black/45">
+        <p className="truncate text-xs text-ink/65">
           {dish.detail}
         </p>
       </div>
@@ -367,7 +368,7 @@ function DishRow({
           className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition ${
             dish.soldOut
               ? 'bg-red-500 text-white hover:bg-red-600'
-              : 'bg-[#f8edef] text-black/50 hover:bg-black/10'
+              : 'bg-brand-soft text-ink/65 hover:bg-ink/10'
           }`}
         >
           {dish.soldOut ? (
@@ -379,7 +380,7 @@ function DishRow({
 
         <button
           onClick={() => setEditing(true)}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10 hover:text-brand"
         >
           <Pencil size={13} />
         </button>
@@ -394,7 +395,7 @@ function DishRow({
         ) : (
           <button
             onClick={() => setConfirmingDelete(true)}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-red-50 hover:text-red-500"
           >
             <Trash2 size={13} />
           </button>
@@ -403,7 +404,7 @@ function DishRow({
         {confirmingDelete && (
           <button
             onClick={() => setConfirmingDelete(false)}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10"
           >
             <X size={13} />
           </button>
@@ -440,14 +441,14 @@ function NewDayForm({
   };
 
   return (
-    <div className="min-w-0 rounded-[24px] border-2 border-dashed border-[#4e0611]/40 bg-white p-5">
-      <label className="text-xs text-black/40">
+    <div className="min-w-0 rounded-[24px] border-2 border-dashed border-brand/40 bg-white p-5">
+      <label className="text-xs text-ink/65">
         Fecha del nuevo día
       </label>
 
       <div className="relative mt-1">
         <Calendar
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-black/30"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65"
           size={15}
         />
 
@@ -458,7 +459,7 @@ function NewDayForm({
             setDate(event.target.value);
             setError(null);
           }}
-          className="w-full min-w-0 rounded-xl border border-black/5 bg-[#f8edef] py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4e0611]"
+          className="w-full min-w-0 rounded-xl border border-ink/10 bg-brand-soft py-2 pl-9 pr-3 text-sm outline-none focus:border-brand"
         />
       </div>
 
@@ -468,14 +469,14 @@ function NewDayForm({
         </p>
       )}
 
-      <p className="mt-2 text-xs text-black/40">
+      <p className="mt-2 text-xs text-ink/65">
         Podrás agregar los platos de este día justo después de crearlo.
       </p>
 
       <div className="mt-4 flex gap-2">
         <button
           onClick={handleSave}
-          className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#4e0611] py-2.5 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+          className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-xs font-semibold text-white transition hover:bg-brand-dark"
         >
           <Check size={14} />
           Crear día
@@ -483,7 +484,7 @@ function NewDayForm({
 
         <button
           onClick={onCancel}
-          className="shrink-0 rounded-full bg-[#f8edef] px-4 py-2.5 text-xs font-medium text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+          className="shrink-0 rounded-full bg-brand-soft px-4 py-2.5 text-xs font-medium text-ink/65 transition hover:bg-ink/10 hover:text-brand"
         >
           Cancelar
         </button>
@@ -544,7 +545,7 @@ function DayCard({
     <div
       className={`min-w-0 rounded-[24px] bg-white p-4 transition-all sm:p-5 ${
         isActiveWeek
-          ? 'ring-2 ring-[#4e0611]/30 shadow-sm'
+          ? 'ring-2 ring-brand/30 shadow-sm'
           : 'opacity-85 hover:opacity-100'
       }`}
     >
@@ -553,7 +554,7 @@ function DayCard({
           <div className="min-w-0 flex-1">
             <div className="relative">
               <Calendar
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-black/30"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65"
                 size={14}
               />
 
@@ -564,7 +565,7 @@ function DayCard({
                   setDateDraft(event.target.value);
                   setDateError(null);
                 }}
-                className="w-full min-w-0 rounded-xl border border-black/5 bg-[#f8edef] py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4e0611]"
+                className="w-full min-w-0 rounded-xl border border-ink/10 bg-brand-soft py-2 pl-9 pr-3 text-sm outline-none focus:border-brand"
               />
             </div>
 
@@ -577,7 +578,7 @@ function DayCard({
             <div className="mt-2 flex gap-2">
               <button
                 onClick={handleSaveDate}
-                className="rounded-full bg-[#4e0611] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+                className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-dark"
               >
                 Guardar
               </button>
@@ -588,7 +589,7 @@ function DayCard({
                   setDateDraft(day.date);
                   setDateError(null);
                 }}
-                className="rounded-full bg-[#f8edef] px-3 py-1.5 text-xs font-medium text-black/50 transition hover:bg-black/10 hover:text-[#4e0611]"
+                className="rounded-full bg-brand-soft px-3 py-1.5 text-xs font-medium text-ink/65 transition hover:bg-ink/10 hover:text-brand"
               >
                 Cancelar
               </button>
@@ -600,7 +601,7 @@ function DayCard({
             className="min-w-0 flex-1 text-left"
           >
             <div className="flex items-center gap-2">
-              <p className="truncate text-xs font-medium uppercase tracking-wider text-black/40 transition hover:text-[#4e0611]">
+              <p className="truncate text-xs font-medium uppercase tracking-wider text-ink/65 transition hover:text-brand">
                 {getFullDateLabel(day.date)}
               </p>
 
@@ -631,7 +632,7 @@ function DayCard({
             ) : (
               <button
                 onClick={() => setConfirmingDeleteDay(true)}
-                className="grid h-9 w-9 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-red-50 hover:text-red-500"
+                className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-red-50 hover:text-red-500"
               >
                 <Trash2 size={14} />
               </button>
@@ -640,7 +641,7 @@ function DayCard({
             {confirmingDeleteDay && (
               <button
                 onClick={() => setConfirmingDeleteDay(false)}
-                className="grid h-9 w-9 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10"
+                className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10"
               >
                 <X size={14} />
               </button>
@@ -672,7 +673,7 @@ function DayCard({
         ) : (
           <button
             onClick={() => setAddingDish(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-black/10 py-3 text-xs font-medium text-black/45 transition hover:border-[#4e0611]/40 hover:text-[#4e0611]"
+            className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-ink/15 py-3 text-xs font-medium text-ink/65 transition hover:border-brand/40 hover:text-brand"
           >
             <Plus size={14} />
             Agregar plato a este día
@@ -715,7 +716,6 @@ export function AdminMenuView({
   const [addingDay, setAddingDay] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [monthFilter, setMonthFilter] = useState('todos');
-  const [page, setPage] = useState(1);
 
   const existingDates = menu.map((day) => day.date);
 
@@ -766,9 +766,9 @@ export function AdminMenuView({
   }, [filteredMenu]);
 
   // Volver a página 1 al cambiar filtro o búsqueda
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, monthFilter]);
+  const [page, setPage] = useResettingPage(
+    String(searchQuery) + '|' + String(monthFilter)
+  );
 
   // Cálculos de paginación
   const totalPages = Math.max(1, Math.ceil(sortedMenu.length / PAGE_SIZE));
@@ -787,14 +787,14 @@ export function AdminMenuView({
   return (
     <div className="min-w-0">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <p className="text-sm text-black/45">
+        <p className="text-sm text-ink/65">
           Agrega días y sus platos. Los días de la semana actual se muestran primero.
         </p>
 
         <div className="flex shrink-0 flex-wrap gap-2">
           <button
             onClick={resetMenu}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 py-2 text-xs font-medium text-black/45 transition hover:bg-[#f8edef] hover:text-[#4e0611]"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 py-2 text-xs font-medium text-ink/65 transition hover:bg-brand-soft hover:text-brand"
           >
             <RotateCcw size={13} />
             Actualizar
@@ -805,7 +805,7 @@ export function AdminMenuView({
               setAddingDay(true);
               setPage(1);
             }}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-dark"
           >
             <Plus size={13} />
             Nuevo día
@@ -818,7 +818,7 @@ export function AdminMenuView({
         <div className="relative flex-1">
           <Search
             size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/65"
           />
 
           <input
@@ -826,13 +826,13 @@ export function AdminMenuView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por fecha, día o nombre de plato..."
-            className="w-full rounded-2xl border border-black/5 bg-white py-2.5 pl-10 pr-9 text-sm outline-none transition focus:border-[#4e0611]"
+            className="w-full rounded-2xl border border-ink/10 bg-white py-2.5 pl-10 pr-9 text-sm outline-none transition focus:border-brand"
           />
 
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-black/35 hover:text-black/60"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/65 hover:text-ink/75"
               title="Limpiar búsqueda"
             >
               <X size={15} />
@@ -846,15 +846,15 @@ export function AdminMenuView({
           aria-label="Filtrar menús por mes"
           className={`rounded-2xl border px-4 py-2.5 text-sm font-medium outline-none transition sm:w-52 ${
             monthFilter !== 'todos'
-              ? 'border-[#4e0611] bg-[#4e0611] text-white'
-              : 'border-black/5 bg-white text-black/65 hover:border-[#4e0611]/40'
+              ? 'border-brand bg-brand text-white'
+              : 'border-ink/10 bg-white text-ink/75 hover:border-brand/40'
           }`}
         >
-          <option value="todos" className="bg-white text-black">
+          <option value="todos" className="bg-white text-ink">
             Todos los meses
           </option>
           {monthOptions.map((ym) => (
-            <option key={ym} value={ym} className="bg-white text-black">
+            <option key={ym} value={ym} className="bg-white text-ink">
               {formatMonthLabel(ym)}
             </option>
           ))}
@@ -863,14 +863,14 @@ export function AdminMenuView({
 
       {/* Barra superior de paginación */}
       {sortedMenu.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-ink/65">
           <span>
             Mostrando{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, sortedMenu.length)}
             </strong>{' '}
             de{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {sortedMenu.length}
             </strong>{' '}
             {sortedMenu.length === 1 ? 'día' : 'días'}
@@ -887,7 +887,7 @@ export function AdminMenuView({
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 aria-label="Página anterior"
-                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft size={15} />
               </button>
@@ -897,7 +897,7 @@ export function AdminMenuView({
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 aria-label="Página siguiente"
-                className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronRight size={15} />
               </button>
@@ -946,14 +946,14 @@ export function AdminMenuView({
 
       {/* Barra inferior de paginación */}
       {totalPages > 1 && (
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-ink/65">
           <span>
             Mostrando{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, sortedMenu.length)}
             </strong>{' '}
             de{' '}
-            <strong className="font-semibold text-black/75">
+            <strong className="font-semibold text-ink/85">
               {sortedMenu.length}
             </strong>{' '}
             días
@@ -964,13 +964,13 @@ export function AdminMenuView({
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft size={14} />
               Anterior
             </button>
 
-            <span className="px-1 font-medium text-black/70">
+            <span className="px-1 font-medium text-ink/75">
               {currentPage} / {totalPages}
             </span>
 
@@ -978,7 +978,7 @@ export function AdminMenuView({
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               Siguiente
               <ChevronRight size={14} />
@@ -990,11 +990,11 @@ export function AdminMenuView({
       {sortedMenu.length === 0 && !addingDay && (
         <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-8 text-center sm:p-14">
           <Calendar
-            className="text-black/20"
+            className="text-ink/65"
             size={32}
           />
 
-          <p className="mt-4 text-sm text-black/45">
+          <p className="mt-4 text-sm text-ink/65">
             {hasActiveFilters
               ? 'No se encontraron menús que coincidan con los filtros aplicados.'
               : 'No hay menús cargados. Agrega el primero con el botón «Nuevo día».'}
@@ -1004,7 +1004,7 @@ export function AdminMenuView({
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-4 rounded-full bg-[#4e0611] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#36040c]"
+              className="mt-4 rounded-full bg-brand px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-dark"
             >
               Limpiar filtros
             </button>

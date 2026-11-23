@@ -6,8 +6,8 @@
 
 :root {
   font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-  color: #252525;
-  background: #f5f5f3;
+  color: #1C1F22;
+  background: #F9F8F6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -31,6 +31,31 @@ button {
 }
 
 ::selection {
-  background: #f6a06e;
-  color: #252525;
+  background: #E3A83F;
+  color: #1C1F22;
+}
+/* Impresión del comprobante: solo se imprime la tarjeta del pedido. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible;
+  }
+
+  .receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+  }
+}
+
+/* Foco visible y consistente en todo el sitio (accesibilidad por teclado). */
+:focus-visible {
+  outline: 2px solid #E3A83F;
+  outline-offset: 2px;
 }

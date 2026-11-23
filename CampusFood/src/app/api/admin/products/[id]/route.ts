@@ -1,5 +1,6 @@
 import { requirePermission } from '@/lib/auth/require-permission';
 import { prisma } from '@/lib/prisma';
+import { deleteProductImage, resolveManagedImage } from '@/lib/services/product-images';
 
 export const runtime = 'nodejs';
 
@@ -35,6 +36,7 @@ type UpdateProductBody = {
   idCategoria?: unknown;
   activo?: unknown;
   imagenUrl?: unknown;
+  imagenPath?: unknown;
   temaVisual?: unknown;
 };
 
@@ -253,6 +255,7 @@ export async function PATCH(
   idCategoria?: number;
   activo?: boolean;
   imagenUrl?: string | null;
+  imagenPath?: string | null;
   temaVisual?: string;
 } = {};
 
@@ -461,11 +464,13 @@ export async function PATCH(
   }
 
   if (
-    body.imagenUrl !== undefined
+    body.imagenUrl !== undefined ||
+    body.imagenPath !== undefined
   ) {
+    // Sin imagenUrl (solo imagenPath) se interpreta como "sin URL manual".
     const parsedImage =
       parseImageUrl(
-        body.imagenUrl,
+        body.imagenUrl ?? null,
       );
 
     if (!parsedImage.ok) {
@@ -480,8 +485,40 @@ export async function PATCH(
       );
     }
 
-    data.imagenUrl =
-      parsedImage.value;
+    if (
+      body.imagenPath !== undefined &&
+      body.imagenPath !== null
+    ) {
+      // Imagen subida desde el panel: la URL pública la calcula el servidor.
+      const resolved =
+        await resolveManagedImage(
+          body.imagenPath,
+          id,
+        );
+
+      if (!resolved.ok) {
+        return Response.json(
+          {
+            error: resolved.error,
+          },
+          {
+            status: resolved.status,
+          },
+        );
+      }
+
+      data.imagenUrl =
+        resolved.fields.imagenUrl;
+
+      data.imagenPath =
+        resolved.fields.imagenPath;
+    } else {
+      // Ruta local, URL externa o sin imagen: ya no apunta a un objeto de Storage.
+      data.imagenUrl =
+        parsedImage.value;
+
+      data.imagenPath = null;
+    }
   }
 
   if (
@@ -506,6 +543,7 @@ export async function PATCH(
         },
         select: {
           idProducto: true,
+          imagenPath: true,
         },
       });
 
@@ -596,6 +634,7 @@ export async function PATCH(
           stock: true,
           activo: true,
           imagenUrl: true,
+          imagenPath: true,
           temaVisual: true,
           fechaCreacion: true,
           fechaActualizacion: true,
@@ -608,6 +647,16 @@ export async function PATCH(
           },
         },
       });
+
+    // La imagen anterior de Storage ya no se usa: se borra (si falla solo se registra).
+    if (
+      current.imagenPath &&
+      current.imagenPath !== product.imagenPath
+    ) {
+      await deleteProductImage(
+        current.imagenPath,
+      );
+    }
 
     const theme = isTheme(
       product.temaVisual,
@@ -639,6 +688,10 @@ export async function PATCH(
         image:
           product.imagenUrl ??
           undefined,
+
+        imagePath:
+
+          product.imagenPath ?? null,
 
         theme,
         tone: TONE_MAP[theme],
@@ -743,6 +796,7 @@ export async function DELETE(
         },
         select: {
           idProducto: true,
+          imagenPath: true,
         },
       });
 
@@ -763,6 +817,10 @@ export async function DELETE(
         idProducto: id,
       },
     });
+
+    await deleteProductImage(
+      product.imagenPath,
+    );
 
     return new Response(null, {
       status: 204,

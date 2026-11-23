@@ -5,15 +5,14 @@ import { optionalString, positiveInt, readJsonBody } from '@/lib/services/http';
 import {
   cancelOrder,
   removeOrderItem,
+  PAYMENT_METHODS,
   retireOrder,
   setOrderStatus,
-  type RetireInput,
 } from '@/lib/services/orders';
 
 export const runtime = 'nodejs';
 
 const CODE_PATTERN = /^CF-[A-Z0-9]{4}$/;
-const PAYMENT_METHODS = ['EFECTIVO', 'DEBITO', 'CREDITO', 'OTRO'] as const;
 
 type RouteContext = {
   params: Promise<{ code: string }>;
@@ -24,7 +23,7 @@ type RouteContext = {
  *   { action: 'status', status: 'pendiente' | 'listo' }   (personal)
  *   { action: 'cancel', reason? }                          (dueño o personal)
  *   { action: 'removeItem', productId, quantity, reason? } (dueño o personal)
- *   { action: 'retire', medioPago? }                       (personal con cobro)
+ *   { action: 'retire', medioPago }                        (personal con cobro; el monto sale de la BD)
  */
 export async function PATCH(request: Request, context: RouteContext) {
   const auth = await requireSession();
@@ -79,19 +78,13 @@ export async function PATCH(request: Request, context: RouteContext) {
           throw new ServiceError(403, 'PERMISSION_DENIED', 'No tienes permiso para esta operación.');
         }
 
-        let medioPago: RetireInput['medioPago'];
+        const method = PAYMENT_METHODS.find((candidate) => candidate === body.medioPago);
 
-        if (body.medioPago !== undefined) {
-          const method = PAYMENT_METHODS.find((candidate) => candidate === body.medioPago);
-
-          if (!method) {
-            throw new ServiceError(400, 'INVALID_PAYMENT_METHOD', 'Medio de pago no válido.');
-          }
-
-          medioPago = method;
+        if (!method) {
+          throw new ServiceError(400, 'INVALID_PAYMENT_METHOD', 'Medio de pago no válido.');
         }
 
-        return Response.json({ order: await retireOrder(actor, code, { medioPago }) });
+        return Response.json({ order: await retireOrder(actor, code, { medioPago: method }) });
       }
 
       default:

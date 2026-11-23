@@ -19,6 +19,8 @@ export const PERMISSIONS = [
   'REGISTER_PAYMENT',
   'MANAGE_POLLS',
   'MANAGE_PENALTIES',
+  'VIEW_DASHBOARD',
+  'VIEW_FINANCIALS',
 ] as const;
 
 export type Permission =

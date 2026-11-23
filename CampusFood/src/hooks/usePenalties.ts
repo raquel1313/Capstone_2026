@@ -32,7 +32,7 @@ const NO_PENALTY: PenaltyStatus = {
 
 /**
  * Faltas y bloqueos guardados en la base de datos. Se recalculan cuando cambian
- * los pedidos (por ejemplo, al cancelar fuera del plazo gratuito).
+ * los pedidos (por ejemplo, cuando un pedido se marca como listo o retirado).
  */
 export function usePenalties(userId: string | null, orders: Order[]) {
   const [state, setState] = useState<PenaltyState>({

@@ -17,9 +17,9 @@ El sistema busca mejorar el acceso a la información, optimizar la gestión de l
 - **Inicio:** buscador, categorías de cafetería, carrusel "Para tu break" y acceso al menú semanal.
 - **Menú semanal:** consulta de los platos disponibles por día, indicador de productos agotados y sistema de reacciones mediante emojis (Excelente, Bueno, Regular y Wakala).
 - **Cafetería:** catálogo de productos con búsqueda y filtros por categoría. Los productos agotados se muestran al final y no pueden agregarse al carrito.
-- **Carrito y pedidos:** permite agregar productos, validar disponibilidad y stock, conservar el carrito al recargar la página y generar un código de retiro. El pago se realiza presencialmente en el mesón.
+- **Carrito y pedidos:** los pedidos se aceptan de 07:00 a 22:00 (hora de Chile; el servidor lo valida). Permite agregar productos, validar disponibilidad y stock, conservar el carrito al recargar la página y generar un código de retiro. El pago se realiza presencialmente en el mesón.
 - **Votaciones:** participación en encuestas activas, con confirmación del voto y restricción de un voto por usuario.
-- **Perfil:** visualización de datos personales, estadísticas, historial y estado de pedidos. Permite cancelar pedidos completos o retirar productos individuales mientras el pedido esté pendiente. Incluye contador de faltas.
+- **Perfil:** visualización de datos personales, estadísticas, historial y estado de pedidos. Permite cancelar pedidos completos o retirar productos individuales mientras el pedido esté pendiente (cancelar no genera faltas). Incluye contador de faltas: es falta dejar un pedido listo sin retirar hasta el fin del día; con 3 faltas en 7 días el cliente queda bloqueado 3 días.
 - **Notificaciones:** avisos persistentes por usuario sobre pedidos listos, pedidos cancelados por el casino y productos retirados de un pedido. Permite descartar notificaciones deslizando.
 
 ### 🛠️ Colaboradores y administración
@@ -105,6 +105,34 @@ La aplicación estará disponible en:
 ```text
 http://localhost:3000
 ```
+
+### Imágenes de productos (Supabase Storage)
+
+Las imágenes se suben desde *Admin → Productos* (botón "Subir imagen": vista previa, reemplazar y quitar). Se guardan en el bucket público `product-images` de Supabase Storage; la base de datos solo guarda la ruta (`imagen_path`) y la URL pública (`imagen_url`), nunca el archivo. El bucket se crea solo la primera vez que se sube una imagen y usa la `SUPABASE_SECRET_KEY` (solo servidor).
+
+- Formatos: JPEG, PNG, WebP y AVIF, máximo 5 MB. El tipo se verifica por el contenido del archivo, no por su extensión; el nombre original se descarta y se genera uno nuevo.
+- Solo usuarios con permiso `MANAGE_PRODUCTS` pueden subir o borrar.
+- También se puede seguir usando una ruta local (`/images/products/...`) o una URL HTTPS.
+
+### Dashboard administrativo
+
+*Admin → Dashboard* muestra métricas reales calculadas por el servidor (agregaciones SQL) para el período elegido: Hoy, Últimos 7 días, Últimos 30 días, Este mes, Mes anterior o un rango personalizado (máximo 366 días, hora de Chile). Todas se comparan con el período anterior equivalente.
+
+| Indicador | Fórmula |
+|---|---|
+| Pedidos | Pedidos creados en el período (los cancelados incluidos) |
+| Tasa de cancelación | cancelados ÷ pedidos del período |
+| Valor de pedidos | Suma del total de los pedidos **no cancelados** creados en el período (incluye pendientes y listos) |
+| Ingreso registrado | Suma de los **pagos registrados** con fecha de pago en el período. Un pedido pendiente o listo nunca cuenta como ingreso |
+| Ticket promedio de pedidos | valor de pedidos ÷ pedidos no cancelados |
+| Ticket promedio cobrado | ingreso registrado ÷ pedidos pagados |
+| Productos | Unidades de `PedidoDetalle` en pedidos no cancelados del período (no depende del stock actual) |
+| Preparación | Primera vez que el pedido pasó a LISTO (historial de estados) − fecha de creación |
+| Espera en el mesón | Fecha de retiro − primera vez en LISTO |
+
+Si no hay datos suficientes el panel lo indica en vez de mostrar 0 % o un producto inventado. Las observaciones automáticas se generan con reglas fijas y umbrales explícitos (`src/lib/dashboard/insights.ts`), sin IA.
+
+Endpoints (`GET`, parámetros `preset`, `from`, `to`): `/api/admin/dashboard/summary`, `/orders` y `/products`. Requieren el permiso `VIEW_DASHBOARD` (administrador y trabajador); los montos (`commercial`) solo se entregan con `VIEW_FINANCIALS` (solo administrador). Para aplicar los permisos y los índices nuevos: `npm run db:migrate` y `npm run db:seed`.
 
 ### Verificación
 

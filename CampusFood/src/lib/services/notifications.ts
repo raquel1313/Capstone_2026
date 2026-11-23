@@ -11,7 +11,7 @@ const LIST_LIMIT = 50;
 type NotificationInput = {
   idUsuario: string;
   idPedido: number;
-  tipo: 'PEDIDO_LISTO' | 'PEDIDO_CANCELADO' | 'PRODUCTO_RETIRADO';
+  tipo: 'PEDIDO_LISTO' | 'PEDIDO_CANCELADO' | 'PRODUCTO_RETIRADO' | 'PEDIDO_RETIRADO';
   clave: string;
   titulo: string;
   mensaje: string;
@@ -32,6 +32,7 @@ const KIND = {
   PEDIDO_LISTO: 'ready',
   PEDIDO_CANCELADO: 'cancelled',
   PRODUCTO_RETIRADO: 'adjusted',
+  PEDIDO_RETIRADO: 'retired',
 } as const;
 
 export async function listNotifications(userId: string): Promise<OrderNotification[]> {

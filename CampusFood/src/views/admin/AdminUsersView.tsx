@@ -1,7 +1,7 @@
 'use client';
 
+import { SecurityNotice } from '@/components/SecurityNotice';
 import {
-  useEffect,
   useId,
   useState,
   type ReactNode,
@@ -31,6 +31,7 @@ import {
   type UpdateUserInput,
   type UserItem,
 } from '@/hooks/useUsers';
+import { useResettingPage } from '@/hooks/useResettingPage';
 
 // Múltiplo de 3 para que la grilla de 3 columnas quede simétrica
 const PAGE_SIZE = 21;
@@ -91,7 +92,7 @@ const ROLE_BADGE_CLASSES: Record<
   worker:
     'bg-amber-100 text-amber-700',
   admin:
-    'bg-[#4e0611]/10 text-[#4e0611]',
+    'bg-brand/10 text-brand',
 };
 
 const EMPTY_FORM: FormValues = {
@@ -104,7 +105,7 @@ const EMPTY_FORM: FormValues = {
 };
 
 const INPUT_CLASS =
-  'mt-1 w-full rounded-xl border border-black/5 bg-[#f8edef] px-3 py-2 text-sm outline-none focus:border-[#4e0611] disabled:cursor-not-allowed disabled:opacity-60';
+  'mt-1 w-full rounded-xl border border-ink/10 bg-brand-soft px-3 py-2 text-sm outline-none focus:border-brand disabled:cursor-not-allowed disabled:opacity-60';
 
 const LOCKED_MESSAGE =
   'Debe quedar al menos un administrador activo';
@@ -320,7 +321,7 @@ function UserForm({
     };
 
   return (
-    <div className="rounded-[24px] border-2 border-dashed border-[#4e0611]/40 bg-white p-5">
+    <div className="rounded-[24px] border-2 border-dashed border-brand/40 bg-white p-5">
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -328,7 +329,7 @@ function UserForm({
               htmlFor={
                 firstNameId
               }
-              className="text-xs text-black/40"
+              className="text-xs text-ink/65"
             >
               Nombre
             </label>
@@ -368,7 +369,7 @@ function UserForm({
               htmlFor={
                 lastNameId
               }
-              className="text-xs text-black/40"
+              className="text-xs text-ink/65"
             >
               Apellido
             </label>
@@ -407,7 +408,7 @@ function UserForm({
         <div>
           <label
             htmlFor={emailId}
-            className="text-xs text-black/40"
+            className="text-xs text-ink/65"
           >
             Correo institucional
           </label>
@@ -442,7 +443,7 @@ function UserForm({
           <div>
             <label
               htmlFor={roleId}
-              className="text-xs text-black/40"
+              className="text-xs text-ink/65"
             >
               Rol
             </label>
@@ -491,7 +492,7 @@ function UserForm({
               htmlFor={
                 statusId
               }
-              className="text-xs text-black/40"
+              className="text-xs text-ink/65"
             >
               Estado
             </label>
@@ -536,7 +537,7 @@ function UserForm({
             htmlFor={
               passwordId
             }
-            className="text-xs text-black/40"
+            className="text-xs text-ink/65"
           >
             {isEditing
               ? 'Nueva contraseña (opcional)'
@@ -598,7 +599,7 @@ function UserForm({
                   ? 'Ocultar contraseña'
                   : 'Mostrar contraseña'
               }
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-black/40 transition hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/65 transition hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               {showPassword ? (
                 <EyeOff
@@ -630,7 +631,7 @@ function UserForm({
             void handleSave();
           }}
           disabled={saving}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#4e0611] py-2.5 text-xs font-semibold text-white hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-xs font-semibold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Check
             size={14}
@@ -645,7 +646,7 @@ function UserForm({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="rounded-full bg-[#f8edef] px-4 py-2.5 text-xs font-medium text-black/50 hover:bg-black/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-full bg-brand-soft px-4 py-2.5 text-xs font-medium text-ink/65 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Cancelar
         </button>
@@ -777,7 +778,7 @@ function UserCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div
-          className={`grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-rose-100 to-red-200 text-sm font-semibold text-[#4e0611] ${
+          className={`grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-rose-100 to-red-200 text-sm font-semibold text-brand ${
             inactive
               ? 'grayscale'
               : ''
@@ -817,7 +818,7 @@ function UserCard({
             {user.name}
           </p>
 
-          <p className="mt-1 truncate text-xs text-black/45">
+          <p className="mt-1 truncate text-xs text-ink/65">
             {
               user.username
             }
@@ -836,7 +837,7 @@ function UserCard({
               actionPending
             }
             aria-label={`Editar ${user.name}`}
-            className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10 hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Pencil
               size={13}
@@ -854,7 +855,7 @@ function UserCard({
               actionPending
             }
             aria-label={`Cambiar contraseña de ${user.name}`}
-            className="grid h-8 w-8 place-items-center rounded-full bg-[#f8edef] text-black/50 transition hover:bg-black/10 hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-ink/65 transition hover:bg-ink/10 hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
           >
             <KeyRound
               size={13}
@@ -879,8 +880,8 @@ function UserCard({
         }
         className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
           inactive
-            ? 'bg-[#4e0611] text-white hover:bg-[#36040c]'
-            : 'bg-[#f8edef] text-black/60 hover:bg-black/10 hover:text-[#4e0611]'
+            ? 'bg-brand text-white hover:bg-brand-dark'
+            : 'bg-brand-soft text-ink/75 hover:bg-ink/10 hover:text-brand'
         }`}
       >
         {inactive ? (
@@ -901,7 +902,7 @@ function UserCard({
       </button>
 
       {locked && (
-        <p className="mt-2 text-center text-[11px] text-black/40">
+        <p className="mt-2 text-center text-[11px] text-ink/65">
           {
             LOCKED_MESSAGE
           }
@@ -933,15 +934,15 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-[24px] bg-white p-4">
-      <div className="flex items-center justify-between text-black/30">
-        <span className="text-xs text-black/40">
+      <div className="flex items-center justify-between text-ink/65">
+        <span className="text-xs text-ink/65">
           {label}
         </span>
 
         {icon}
       </div>
 
-      <p className="mt-1 text-2xl font-semibold text-[#4e0611]">
+      <p className="mt-1 text-2xl font-semibold text-brand">
         {value}
       </p>
     </div>
@@ -979,11 +980,6 @@ export function AdminUsersView() {
   ] =
     useState('');
 
-  const [
-    page,
-    setPage,
-  ] =
-    useState(1);
 
   const activeAdmins =
     users.filter(
@@ -1079,9 +1075,9 @@ export function AdminUsersView() {
     );
 
   // Volver a la página 1 al cambiar filtro o búsqueda
-  useEffect(() => {
-    setPage(1);
-  }, [roleFilter, search]);
+  const [page, setPage] = useResettingPage(
+    String(roleFilter) + '|' + String(search)
+  );
 
   // Cálculos de paginación
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -1112,6 +1108,8 @@ export function AdminUsersView() {
 
   return (
     <div>
+      <SecurityNotice className="mb-4" />
+
       <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Total usuarios registrados"
@@ -1202,8 +1200,8 @@ export function AdminUsersView() {
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   roleFilter ===
                   filter.id
-                    ? 'bg-[#4e0611] text-white'
-                    : 'bg-white text-black/50 hover:bg-[#f8edef] hover:text-[#4e0611]'
+                    ? 'bg-brand text-white'
+                    : 'bg-white text-ink/65 hover:bg-brand-soft hover:text-brand'
                 }`}
               >
                 {
@@ -1223,7 +1221,7 @@ export function AdminUsersView() {
             disabled={
               loading
             }
-            className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-medium text-black/45 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-medium text-ink/65 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw
               size={13}
@@ -1246,7 +1244,7 @@ export function AdminUsersView() {
             disabled={
               adding
             }
-            className="flex items-center gap-1.5 rounded-full bg-[#4e0611] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#36040c] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus
               size={13}
@@ -1260,7 +1258,7 @@ export function AdminUsersView() {
       <div className="relative mb-5">
         <Search
           size={16}
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-black/30"
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/65"
         />
 
         <input
@@ -1276,7 +1274,7 @@ export function AdminUsersView() {
             )
           }
           placeholder="Buscar por nombre o correo"
-          className="w-full rounded-full border border-black/5 bg-white py-3 pl-11 pr-10 text-sm outline-none focus:border-[#4e0611]"
+          className="w-full rounded-full border border-ink/10 bg-white py-3 pl-11 pr-10 text-sm outline-none focus:border-brand"
         />
 
         {search && (
@@ -1284,7 +1282,7 @@ export function AdminUsersView() {
             type="button"
             onClick={() => setSearch('')}
             aria-label="Borrar búsqueda"
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-[#4e0611]"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-ink/65 hover:text-brand"
           >
             <X size={15} />
           </button>
@@ -1296,10 +1294,10 @@ export function AdminUsersView() {
         <div className="rounded-[28px] bg-white p-14 text-center">
           <RefreshCw
             size={28}
-            className="mx-auto animate-spin text-black/20"
+            className="mx-auto animate-spin text-ink/65"
           />
 
-          <p className="mt-4 text-sm text-black/45">
+          <p className="mt-4 text-sm text-ink/65">
             Cargando
             usuarios...
           </p>
@@ -1308,14 +1306,14 @@ export function AdminUsersView() {
         <>
           {/* Barra superior de paginación */}
           {filtered.length > 0 && (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-black/50">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-ink/65">
               <span>
                 Mostrando{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, filtered.length)}
                 </strong>{' '}
                 de{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {filtered.length}
                 </strong>{' '}
                 {filtered.length === 1 ? 'usuario' : 'usuarios'}
@@ -1332,7 +1330,7 @@ export function AdminUsersView() {
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     aria-label="Página anterior"
-                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronLeft size={15} />
                   </button>
@@ -1342,7 +1340,7 @@ export function AdminUsersView() {
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                     aria-label="Página siguiente"
-                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-black/60 shadow-2xs transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-ink/75 shadow-2xs transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronRight size={15} />
                   </button>
@@ -1481,14 +1479,14 @@ export function AdminUsersView() {
 
           {/* Barra inferior de paginación */}
           {totalPages > 1 && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-black/55">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-white px-5 py-3 text-xs text-ink/65">
               <span>
                 Mostrando{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {startIndex + 1}–{Math.min(startIndex + PAGE_SIZE, filtered.length)}
                 </strong>{' '}
                 de{' '}
-                <strong className="font-semibold text-black/75">
+                <strong className="font-semibold text-ink/85">
                   {filtered.length}
                 </strong>{' '}
                 usuarios
@@ -1499,13 +1497,13 @@ export function AdminUsersView() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft size={14} />
                   Anterior
                 </button>
 
-                <span className="px-1 font-medium text-black/70">
+                <span className="px-1 font-medium text-ink/75">
                   {currentPage} / {totalPages}
                 </span>
 
@@ -1513,7 +1511,7 @@ export function AdminUsersView() {
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="flex items-center gap-1 rounded-full bg-[#f5f5f3] px-3.5 py-1.5 font-medium text-black/65 transition hover:bg-[#f8edef] hover:text-[#4e0611] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-full bg-surface px-3.5 py-1.5 font-medium text-ink/75 transition hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Siguiente
                   <ChevronRight size={14} />
@@ -1527,11 +1525,11 @@ export function AdminUsersView() {
             !adding && (
               <div className="flex flex-col items-center justify-center rounded-[28px] bg-white p-14 text-center">
                 <Users
-                  className="text-black/20"
+                  className="text-ink/65"
                   size={32}
                 />
 
-                <p className="mt-4 text-sm text-black/45">
+                <p className="mt-4 text-sm text-ink/65">
                   No se
                   encontraron
                   usuarios con

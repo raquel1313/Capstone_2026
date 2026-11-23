@@ -98,6 +98,9 @@ model Producto {
   stock              Int      @default(0)
   activo             Boolean  @default(true)
   imagenUrl          String?  @map("imagen_url") @db.Text
+  // Ruta del objeto en Supabase Storage cuando la imagen fue subida desde el panel
+  // (null si la imagen es una ruta local o una URL externa).
+  imagenPath         String?  @unique @map("imagen_path") @db.VarChar(255)
   temaVisual         String   @default("amber") @map("tema_visual") @db.VarChar(20)
   fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(6)
   fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion") @db.Timestamptz(6)
@@ -232,10 +235,12 @@ enum OrigenAccion {
   PERSONAL
 }
 
+// OTRO se conserva solo por compatibilidad con pagos históricos; la API ya no lo acepta.
 enum MedioPago {
   EFECTIVO
   DEBITO
   CREDITO
+  TARJETA_ALIMENTACION
   OTRO
 }
 
@@ -288,6 +293,8 @@ model Pedido {
 
   @@index([idUsuario, fechaCreacion])
   @@index([idEstado, fechaCreacion])
+  // Dashboard: todas las consultas filtran un rango de fecha_creacion sin usuario ni estado.
+  @@index([fechaCreacion])
   @@map("pedidos")
 }
 
@@ -358,6 +365,8 @@ model Pago {
   pedido  Pedido   @relation(fields: [idPedido], references: [idPedido], onDelete: Restrict)
   usuario Usuario? @relation("PagoRegistradoPor", fields: [registradoPor], references: [idUsuario], onDelete: SetNull)
 
+  // Dashboard: ingresos por rango de fecha_pago.
+  @@index([fechaPago])
   @@map("pagos")
 }
 
@@ -405,6 +414,7 @@ enum TipoNotificacion {
   PEDIDO_LISTO
   PEDIDO_CANCELADO
   PRODUCTO_RETIRADO
+  PEDIDO_RETIRADO
 }
 
 model NotificacionPedido {
@@ -527,6 +537,8 @@ model Voto {
 // sobre las faltas no anuladas; la amnistía anula las faltas vigentes.
 // ---------------------------------------------------------------------------
 
+// CANCELACION_TARDIA es legado: ya no se genera ni cuenta para el bloqueo (solo NO_RETIRO).
+// Se conserva para no perder el historial de las faltas que ya existían.
 enum TipoPenalizacion {
   CANCELACION_TARDIA
   NO_RETIRO

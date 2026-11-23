@@ -1,7 +1,35 @@
 import type { Product } from '@/data';
 import type { Order } from '@/types';
 
+// ---- Horario de atención (hora de Chile, no la del navegador) ----
+export const SERVICE_TIME_ZONE = 'America/Santiago';
+export const SERVICE_OPEN_HOUR = 7; // desde las 07:00
+export const SERVICE_CLOSE_HOUR = 22; // hasta antes de las 22:00
+export const SERVICE_HOURS_LABEL = '07:00 a 22:00';
+
+// Hora (0-23) en Chile del instante dado, con horario de verano incluido.
+function getChileHour(date: Date): number {
+  const hour = new Intl.DateTimeFormat('en-GB', {
+    timeZone: SERVICE_TIME_ZONE,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(date);
+
+  return Number(hour);
+}
+
+// ¿Se pueden hacer pedidos en este instante? Lo usan la pantalla y el servidor.
+export function isServiceOpen(date: Date = new Date()): boolean {
+  const hour = getChileHour(date);
+
+  return hour >= SERVICE_OPEN_HOUR && hour < SERVICE_CLOSE_HOUR;
+}
+
+export const OUT_OF_HOURS_MESSAGE = `El casino atiende de ${SERVICE_HOURS_LABEL} (hora de Chile). Vuelve a intentarlo dentro del horario.`;
+
 // ---- Reglas de sanción ----
+// Solo es falta dejar un pedido listo sin retirar hasta el fin del día.
+// Cancelar un pedido (en cualquier momento) no genera faltas.
 export const STRIKE_LIMIT = 3; // faltas para quedar bloqueado
 export const STRIKE_WINDOW_DAYS = 7; // las faltas cuentan durante este período
 export const BLOCK_DAYS = 3; // duración del bloqueo
@@ -82,8 +110,12 @@ export type PenaltyStatus = {
   blockedUntil: number | null;
 };
 
+const FAULT_LABELS: Record<FaultReason, string> = {
+  no_retirado: 'Pedido no retirado al finalizar el día',
+};
+
 export function faultLabel(reason: FaultReason) {
-  return 'Pedido no retirado al finalizar el día';
+  return FAULT_LABELS[reason];
 }
 
 export function formatDateTime(ms: number) {

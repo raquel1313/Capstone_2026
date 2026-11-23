@@ -41,7 +41,7 @@ export function AdminMobileNav({
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-between overflow-x-auto border-t border-black/5 bg-white px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-between overflow-x-auto border-t border-ink/10 bg-white px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
       {visibleItems.map(({ id, label, icon: Icon }) => {
         const isActive = adminView === id;
 
@@ -51,7 +51,7 @@ export function AdminMobileNav({
             type="button"
             onClick={() => setAdminView(id)}
             className={`flex flex-1 shrink-0 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium transition ${
-              isActive ? 'text-[#4e0611]' : 'text-black/40'
+              isActive ? 'text-brand' : 'text-ink/65'
             }`}
           >
             <Icon size={18} />
