@@ -323,11 +323,14 @@ export function HomeView({
                   }`}
                 >
                   {representative?.image && (
-                    <div className="h-44 w-full overflow-hidden sm:h-52">
+                    <div className="relative h-44 w-full overflow-hidden sm:h-52">
                       <Image
                         src={representative.image}
                         alt={representative.name}
-                        className={`h-full w-full object-cover ${allSoldOut ? 'grayscale' : ''}`}
+                        fill
+                        sizes="(max-width: 640px) 82vw, (max-width: 1024px) 56vw, 42vw"
+                        unoptimized
+                        className={`object-cover ${allSoldOut ? 'grayscale' : ''}`}
                       />
                     </div>
                   )}
@@ -411,11 +414,8 @@ export function HomeView({
               </div>
             );
           })}
-          </div>
+        </div>
       </section>
-
-
-  
 
       {/* Votación */}
       <>

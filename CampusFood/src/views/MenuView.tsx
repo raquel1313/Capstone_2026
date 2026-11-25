@@ -160,7 +160,10 @@ export function MenuView({
               <Image
                 src={dish.image}
                 alt={dish.name}
-                className={`absolute inset-0 h-full w-full object-cover ${dish.soldOut ? 'grayscale' : ''}`}
+                fill
+                sizes="(max-width: 1024px) 100vw, 1024px"
+                unoptimized
+                className={`object-cover ${dish.soldOut ? 'grayscale' : ''}`}
               />
             )}
             <span className="relative rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold">Plato del día</span>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import Image from 'next/image';
 import { ImagePlus, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 
@@ -21,7 +21,7 @@ async function readJson<T>(response: Response): Promise<T | null> {
   }
 }
 
-// Borra una imagen subida que no llegó a guardarse en ningún producto.
+// Borra una imagen subida que no llegó a guardarse en ningún producto o plato.
 export async function discardUploadedImage(path: string | null) {
   if (!path) {
     return;
@@ -40,7 +40,7 @@ export async function discardUploadedImage(path: string | null) {
 
 /**
  * Selector de imagen: elige un archivo, valida, muestra la vista previa, lo sube a
- * Supabase Storage y entrega la ruta y URL para guardarlas en el producto.
+ * Supabase Storage y entrega la ruta y URL para guardarlas en el producto o plato.
  * El servidor vuelve a validar tipo, tamaño y permisos.
  */
 export function ProductImageField({
@@ -48,13 +48,16 @@ export function ProductImageField({
   savedPath,
   onChange,
   disabled = false,
+  label = 'Imagen del producto',
 }: {
   value: ProductImageValue;
-  // Imagen ya guardada en el producto: no se borra hasta que se guarden los cambios.
+  // Imagen ya guardada: no se borra hasta que se guarden los cambios.
   savedPath: string | null;
   onChange: (next: ProductImageValue) => void;
   disabled?: boolean;
+  label?: string;
 }) {
+  const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -144,7 +147,7 @@ export function ProductImageField({
 
   return (
     <div>
-      <p className="text-xs text-ink/65">Imagen del producto</p>
+      <p className="text-xs text-ink/65">{label}</p>
 
       <div className="mt-1 flex items-center gap-3">
         <div className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-ink/10 bg-brand-soft text-ink/65">
@@ -176,7 +179,7 @@ export function ProductImageField({
             onChange={(event) => void handleFile(event)}
             disabled={disabled || uploading}
             className="sr-only"
-            id="product-image-file"
+            id={inputId}
           />
 
           <button

@@ -20,6 +20,11 @@ import type { Dish, LunchDay } from '@/data';
 import { getDayLabel, getFullDateLabel } from '@/data';
 import { REACTIONS } from '@/hooks/useReactions';
 import { useResettingPage } from '@/hooks/useResettingPage';
+import {
+  ProductImageField,
+  discardUploadedImage,
+  type ProductImageValue,
+} from '@/components/admin/ProductImageField';
 
 // Múltiplo de 3 para que la grilla de 3 columnas quede simétrica
 const PAGE_SIZE = 18;
@@ -147,6 +152,10 @@ function DishForm({
   onCancel: () => void;
 }) {
   const [form, setForm] = useState(initial);
+  const [imageValue, setImageValue] = useState<ProductImageValue>({
+    imageUrl: initial.image,
+    imagePath: null,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = () => {
@@ -155,7 +164,17 @@ function DishForm({
       return;
     }
 
-    onSave(form);
+    onSave({
+      ...form,
+      image: imageValue.imageUrl,
+    });
+  };
+
+  const handleCancel = () => {
+    if (imageValue.imagePath) {
+      void discardUploadedImage(imageValue.imagePath);
+    }
+    onCancel();
   };
 
   return (
@@ -207,6 +226,7 @@ function DishForm({
             {COLOR_OPTIONS.map((option) => (
               <button
                 key={option.value}
+                type="button"
                 onClick={() =>
                   setForm({
                     ...form,
@@ -224,23 +244,15 @@ function DishForm({
           </div>
         </div>
 
-        <div>
-          <label className="text-xs text-ink/65">
-            URL de imagen (opcional)
-          </label>
-
-          <input
-            value={form.image}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                image: event.target.value,
-              })
-            }
-            placeholder="https://..."
-            className="mt-1 w-full min-w-0 rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-        </div>
+        <ProductImageField
+          label="Imagen del plato (opcional)"
+          value={imageValue}
+          savedPath={null}
+          onChange={(next) => {
+            setImageValue(next);
+            setForm((prev) => ({ ...prev, image: next.imageUrl }));
+          }}
+        />
 
         <label className="flex items-center gap-2 text-xs text-ink/65">
           <input
@@ -267,6 +279,7 @@ function DishForm({
 
       <div className="mt-3 flex gap-2">
         <button
+          type="button"
           onClick={handleSave}
           className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2 text-xs font-semibold text-white transition hover:bg-brand-dark"
         >
@@ -275,7 +288,8 @@ function DishForm({
         </button>
 
         <button
-          onClick={onCancel}
+          type="button"
+          onClick={handleCancel}
           className="shrink-0 rounded-full bg-white px-3 py-2 text-xs font-medium text-ink/65 transition hover:bg-brand-soft hover:text-brand"
         >
           Cancelar
@@ -309,7 +323,7 @@ function DishRow({
           image:
             typeof dish.image === 'string'
               ? dish.image
-              : dish.image?.src ?? '',
+              : (dish.image as { src?: string } | undefined)?.src ?? '',
           soldOut: dish.soldOut ?? false,
         }}
         onSave={(values) => {
@@ -334,6 +348,9 @@ function DishRow({
           <Image
             src={dish.image}
             alt={dish.name}
+            width={40}
+            height={40}
+            unoptimized
             className="h-full w-full object-cover"
           />
         )}
