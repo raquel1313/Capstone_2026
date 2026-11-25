@@ -39,15 +39,22 @@ export function Delta({
   // En métricas donde subir es malo (ej. cancelaciones) se invierte el color.
   goodWhen = 'up',
   tone = 'light',
+  // false = el período anterior tiene muy pocos datos: un porcentaje sería engañoso.
+  enough = true,
 }: {
   current: number;
   previous: number;
   previousLabel: string;
   goodWhen?: 'up' | 'down' | 'neutral';
   tone?: 'light' | 'dark';
+  enough?: boolean;
 }) {
   const result: Comparison = compare(current, previous);
   const muted = tone === 'dark' ? 'text-white/60' : 'text-ink/65';
+
+  if (!enough) {
+    return <span className={`text-xs ${muted}`}>Pocos pedidos en {previousLabel} para comparar</span>;
+  }
 
   if (result.kind !== 'change') {
     return <span className={`text-xs ${muted}`}>{formatComparison(result, previousLabel)}</span>;

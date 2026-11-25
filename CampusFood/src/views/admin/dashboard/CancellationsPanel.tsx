@@ -1,15 +1,9 @@
-import { formatDecimal, formatInt, formatMinutes } from '@/lib/dashboard/format';
+import { formatInt, formatMoney, formatPercent, ratio } from '@/lib/dashboard/format';
 import type { DashboardSummary } from '@/lib/dashboard/types';
 
 import { BarChart, Card, EmptyData, HorizontalBars, Metric, type BarDatum } from './ui';
 
 const shortDate = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
-
-const ORIGIN_LABEL = {
-  CLIENTE: 'Cliente',
-  PERSONAL: 'Casino',
-  SIN_DATO: 'Sin dato de origen',
-} as const;
 
 export function CancellationsPanel({ summary }: { summary: DashboardSummary }) {
   const { cancellations, orders } = summary;
@@ -46,49 +40,22 @@ export function CancellationsPanel({ summary }: { summary: DashboardSummary }) {
             labelEvery={Math.max(1, Math.ceil(days.length / 12))}
           />
 
-          <div className="grid gap-6 xl:grid-cols-3">
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-ink/65">Quién canceló</h4>
-              <div className="mt-3">
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-ink/65">Motivos más frecuentes</h4>
+            <div className="mt-3">
+              {cancellations.topReasons.length === 0 ? (
+                <EmptyData message="Los pedidos cancelados no tienen motivo registrado." />
+              ) : (
                 <HorizontalBars
                   unit="pedidos"
-                  rows={cancellations.byOrigin.map((origin) => ({
-                    key: origin.origin,
-                    label: ORIGIN_LABEL[origin.origin],
-                    value: origin.count,
-                    detail: `${formatDecimal((origin.count / cancelled) * 100)} %`,
+                  rows={cancellations.topReasons.map((reason) => ({
+                    key: reason.reason,
+                    label: reason.reason,
+                    value: reason.count,
                   }))}
                 />
-              </div>
+              )}
             </div>
-
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-ink/65">Motivos más frecuentes</h4>
-              <div className="mt-3">
-                {cancellations.topReasons.length === 0 ? (
-                  <EmptyData message="Los pedidos cancelados no tienen motivo registrado." />
-                ) : (
-                  <HorizontalBars
-                    unit="pedidos"
-                    rows={cancellations.topReasons.map((reason) => ({
-                      key: reason.reason,
-                      label: reason.reason,
-                      value: reason.count,
-                    }))}
-                  />
-                )}
-              </div>
-            </div>
-
-            <Metric
-              label="Tiempo hasta cancelar"
-              value={formatMinutes(cancellations.minutesToCancel.median)}
-              caption={
-                cancellations.minutesToCancel.samples === 0
-                  ? 'Sin datos de la fecha de cancelación'
-                  : `Mediana de ${formatInt(cancellations.minutesToCancel.samples)} cancelaciones · promedio ${formatMinutes(cancellations.minutesToCancel.average)}`
-              }
-            />
           </div>
         </div>
       )}
@@ -97,19 +64,34 @@ export function CancellationsPanel({ summary }: { summary: DashboardSummary }) {
 }
 
 export function PenaltiesPanel({ summary }: { summary: DashboardSummary }) {
-  const penalties = summary.penalties;
+  const { penalties, commercial } = summary;
+
+  // De los pedidos que quedaron listos y se resolvieron, cuántos no se retiraron.
+  const missedRate = ratio(penalties.missedPickups, summary.orders.current.completed + penalties.missedPickups);
 
   return (
     <Card
       title="Faltas y bloqueos"
       subtitle="Es falta dejar un pedido listo sin retirar hasta el fin del día. Con 3 faltas en 7 días el cliente queda bloqueado 3 días."
     >
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Metric
           label="Pedidos no retirados"
           value={formatInt(penalties.missedPickups)}
           caption="Faltas del período (sin las anuladas)"
         />
+        <Metric
+          label="Tasa de no retiro"
+          value={missedRate === null ? '—' : formatPercent(missedRate)}
+          caption="No retirados ÷ (retirados + no retirados) del período"
+        />
+        {commercial && (
+          <Metric
+            label="Valor no retirado"
+            value={formatMoney(commercial.missedPickupValue)}
+            caption="Suma de los pedidos listos que nadie retiró: inventario preparado y no vendido"
+          />
+        )}
         <Metric
           label="Clientes bloqueados hoy"
           value={formatInt(penalties.blockedUsers)}

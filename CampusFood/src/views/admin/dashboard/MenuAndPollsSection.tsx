@@ -7,6 +7,8 @@ import {
   aggregateReactionsByDishName,
   dayScoreAndBestDish,
 } from '@/hooks/useReactions';
+import { formatInt, formatPercent } from '@/lib/dashboard/format';
+import type { PollParticipation } from '@/lib/dashboard/types';
 
 type OptionStat = {
   label: string;
@@ -50,6 +52,7 @@ function computeOptionStats(history: VotePoll[]): OptionStat[] {
  * Reacciones a los platos del menú y encuestas (parte del dashboard original).
  * Las reacciones se filtran por los días de menú que caen en el rango elegido; las
  * encuestas muestran la vigente y el historial, que no dependen de un rango.
+ * Las tarjetas de reacciones se ocultan mientras no tengan datos.
  */
 export function MenuAndPollsSection({
   menu,
@@ -57,18 +60,18 @@ export function MenuAndPollsSection({
   poll,
   isPollOpen,
   pollHistory,
+  participation,
   rangeFrom,
   rangeTo,
-  rangeLabel,
 }: {
   menu: LunchDay[];
   getReactionCounts: (dishId: string) => Record<string, number>;
   poll: VotePoll | null;
   isPollOpen: boolean;
   pollHistory: VotePoll[];
+  participation: PollParticipation | null;
   rangeFrom: string;
   rangeTo: string;
-  rangeLabel: string;
 }) {
   const monthDays = useMemo(
     () =>
@@ -98,6 +101,10 @@ export function MenuAndPollsSection({
 
   const maxDishScore = Math.max(1, ...topDishes.map((d) => Math.abs(d.score)));
 
+  // Una tarjeta vacía no aporta nada: solo se muestra si tiene datos.
+  const showDays = rankedMonthDays.length > 0;
+  const showDishes = topDishes.length > 0;
+
   const pollTotalVotes = poll ? poll.options.reduce((sum, option) => sum + option.votes, 0) : 0;
 
   const pollWinner = poll
@@ -108,136 +115,115 @@ export function MenuAndPollsSection({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-        {/* Días del mes, ordenados de mejor a peor */}
-        <div className="rounded-[28px] bg-white p-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-ink/65">
-            Días del período, de mejor a peor recibidos
-          </h3>
+      {(showDays || showDishes) && (
+        <div className={`grid gap-4 ${showDays && showDishes ? 'xl:grid-cols-[1.2fr_1fr]' : ''}`}>
+          {/* Días del mes, ordenados de mejor a peor */}
+          {showDays && (
+            <div className="rounded-[28px] bg-white p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-ink/65">
+                Días del período, de mejor a peor recibidos
+              </h3>
 
-          {rankedMonthDays.length === 0 ? (
-            <p className="mt-10 text-center text-sm text-ink/65">
-              No hay reacciones registradas en {rangeLabel.toLowerCase()}.
-            </p>
-          ) : (
-            <div className="mt-5 space-y-3">
-              {rankedMonthDays.map((stat, index) => {
-                const widthPct =
-                  (Math.abs(stat.score) / maxDayScore) * 100;
-                const isPositive = stat.score >= 0;
+              <div className="mt-5 space-y-3">
+                {rankedMonthDays.map((stat, index) => {
+                  const widthPct = (Math.abs(stat.score) / maxDayScore) * 100;
+                  const isPositive = stat.score >= 0;
 
-                const dateLabel = new Date(
-                  stat.day.date + 'T00:00:00'
-                ).toLocaleDateString('es-CL', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                });
+                  const dateLabel = new Date(stat.day.date + 'T00:00:00').toLocaleDateString('es-CL', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                  });
 
-                return (
-                  <div
-                    key={stat.day.id}
-                    className="flex items-center gap-3"
-                  >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-soft text-xs font-bold text-brand">
-                      {index + 1}
-                    </span>
+                  return (
+                    <div key={stat.day.id} className="flex items-center gap-3">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-soft text-xs font-bold text-brand">
+                        {index + 1}
+                      </span>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-medium">
-                          {stat.bestDish?.name ?? 'Sin plato destacado'}
-                        </p>
-                        <span
-                          className={`shrink-0 text-xs font-semibold ${
-                            isPositive
-                              ? 'text-brand'
-                              : 'text-ink/65'
-                          }`}
-                        >
-                          {stat.score > 0
-                            ? `+${stat.score}`
-                            : stat.score}
-                        </span>
-                      </div>
-
-                      <div className="mt-1 flex items-center gap-2">
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface">
-                          <div
-                            className={
-                              isPositive
-                                ? 'h-full rounded-full bg-brand'
-                                : 'h-full rounded-full bg-ink/35'
-                            }
-                            style={{
-                              width: `${Math.max(6, widthPct)}%`,
-                            }}
-                          />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-sm font-medium">
+                            {stat.bestDish?.name ?? 'Sin plato destacado'}
+                          </p>
+                          <span
+                            className={`shrink-0 text-xs font-semibold ${
+                              isPositive ? 'text-brand' : 'text-ink/65'
+                            }`}
+                          >
+                            {stat.score > 0 ? `+${stat.score}` : stat.score}
+                          </span>
                         </div>
-                        <span className="shrink-0 text-[11px] capitalize text-ink/65">
-                          {dateLabel}
-                        </span>
+
+                        <div className="mt-1 flex items-center gap-2">
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface">
+                            <div
+                              className={
+                                isPositive
+                                  ? 'h-full rounded-full bg-brand'
+                                  : 'h-full rounded-full bg-ink/35'
+                              }
+                              style={{ width: `${Math.max(6, widthPct)}%` }}
+                            />
+                          </div>
+                          <span className="shrink-0 text-[11px] capitalize text-ink/65">
+                            {dateLabel}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
+              <p className="mt-4 border-t border-ink/10 pt-3 text-[11px] text-ink/65">
+                Puntaje: Excelente vale +2, Bueno +1, Regular -1, Wakala -2.
+              </p>
             </div>
           )}
 
-          <p className="mt-4 border-t border-ink/10 pt-3 text-[11px] text-ink/65">
-            Puntaje: Excelente vale +2, Bueno +1, Regular -1, Wakala -2.
-          </p>
-        </div>
+          {/* Ranking histórico de platos */}
+          {showDishes && (
+            <div className="rounded-[28px] bg-white p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-ink/65">
+                Platos mejor valorados (histórico)
+              </h3>
 
-        {/* Ranking histórico de platos */}
-        <div className="rounded-[28px] bg-white p-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-ink/65">
-            Platos mejor valorados (histórico)
-          </h3>
+              <div className="mt-5 space-y-3">
+                {topDishes.map((dish, index) => {
+                  const widthPct = (Math.abs(dish.score) / maxDishScore) * 100;
 
-          {topDishes.length === 0 ? (
-            <p className="mt-10 text-center text-sm text-ink/65">
-              Aún no hay reacciones para armar un ranking.
-            </p>
-          ) : (
-            <div className="mt-5 space-y-3">
-              {topDishes.map((dish, index) => {
-                const widthPct =
-                  (Math.abs(dish.score) / maxDishScore) * 100;
+                  return (
+                    <div key={dish.name}>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="truncate font-medium">
+                          {index + 1}. {dish.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-ink/65">
+                          {dish.score > 0 ? `+${dish.score}` : dish.score}
+                          {' · '}
+                          {dish.total} reacciones
+                        </span>
+                      </div>
 
-                return (
-                  <div key={dish.name}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="truncate font-medium">
-                        {index + 1}. {dish.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-ink/65">
-                        {dish.score > 0 ? `+${dish.score}` : dish.score}
-                        {' · '}
-                        {dish.total} reacciones
-                      </span>
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface">
+                        <div
+                          className={
+                            dish.score >= 0
+                              ? 'h-full rounded-full bg-brand'
+                              : 'h-full rounded-full bg-ink/40'
+                          }
+                          style={{ width: `${Math.max(4, widthPct)}%` }}
+                        />
+                      </div>
                     </div>
-
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface">
-                      <div
-                        className={
-                          dish.score >= 0
-                            ? 'h-full rounded-full bg-brand'
-                            : 'h-full rounded-full bg-ink/40'
-                        }
-                        style={{
-                          width: `${Math.max(4, widthPct)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
-      </div>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Encuesta actual */}
@@ -262,6 +248,13 @@ export function MenuAndPollsSection({
                 {pollTotalVotes} voto{pollTotalVotes === 1 ? '' : 's'} ·{' '}
                 {isPollOpen ? 'Abierta' : 'Cerrada'}
               </p>
+
+              {participation && participation.eligible > 0 && (
+                <p className="mt-1 text-xs text-ink/65">
+                  Participación: {formatInt(participation.votes)} de {formatInt(participation.eligible)} estudiantes
+                  activos ({formatPercent(participation.votes / participation.eligible)})
+                </p>
+              )}
 
               <div className="mt-4 space-y-3">
                 {poll.options.map((option) => {
@@ -352,7 +345,9 @@ export function MenuAndPollsSection({
           )}
 
           <p className="mt-4 border-t border-ink/10 pt-3 text-[11px] text-ink/65">
-            Se cuenta cada vez que una encuesta se cierra o se reemplaza por una nueva.
+            Ordenadas por veces ganadora (en empate, por apariciones); por eso los votos totales no van
+            siempre de mayor a menor. Se cuenta cada vez que una encuesta se cierra o se reemplaza por una
+            nueva.
           </p>
         </div>
       </div>

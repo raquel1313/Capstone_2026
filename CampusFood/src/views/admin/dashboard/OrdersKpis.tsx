@@ -1,4 +1,5 @@
 import { formatInt, formatMoney, formatPercent, ratio } from '@/lib/dashboard/format';
+import { INSIGHT_RULES } from '@/lib/dashboard/insights';
 import type { DashboardSummary } from '@/lib/dashboard/types';
 
 import { Card, Delta, EmptyData, Metric, NO_DATA_MESSAGE } from './ui';
@@ -6,6 +7,10 @@ import { Card, Delta, EmptyData, Metric, NO_DATA_MESSAGE } from './ui';
 export function OrdersKpis({ summary }: { summary: DashboardSummary }) {
   const { current, previous } = summary.orders;
   const { previousLabel } = summary.range;
+
+  // Con muy pocos pedidos en el período anterior, un porcentaje de variación no significa nada
+  // (ej. de 2 a 34 pedidos sería "+1.600 %"). Se usa el mismo mínimo que las observaciones.
+  const enough = previous.total >= INSIGHT_RULES.minOrdersForTrend;
 
   const currentRate = ratio(current.cancelled, current.total);
   const previousRate = ratio(previous.cancelled, previous.total);
@@ -28,6 +33,7 @@ export function OrdersKpis({ summary }: { summary: DashboardSummary }) {
               current={current.total}
               previous={previous.total}
               previousLabel={previousLabel}
+              enough={enough}
             />
           }
         />
@@ -37,7 +43,12 @@ export function OrdersKpis({ summary }: { summary: DashboardSummary }) {
           value={formatInt(current.completed)}
           caption="Retirados y pagados en el mesón"
           footer={
-            <Delta current={current.completed} previous={previous.completed} previousLabel={previousLabel} />
+            <Delta
+              current={current.completed}
+              previous={previous.completed}
+              previousLabel={previousLabel}
+              enough={enough}
+            />
           }
         />
 
@@ -51,6 +62,7 @@ export function OrdersKpis({ summary }: { summary: DashboardSummary }) {
               previous={previous.cancelled}
               previousLabel={previousLabel}
               goodWhen="down"
+              enough={enough}
             />
           }
         />
@@ -64,7 +76,9 @@ export function OrdersKpis({ summary }: { summary: DashboardSummary }) {
               : `${formatInt(current.cancelled)} de ${formatInt(current.total)} pedidos`
           }
           footer={
-            points === null ? null : (
+            !enough ? (
+              <span className="text-xs text-ink/65">Pocos pedidos en {previousLabel} para comparar</span>
+            ) : points === null ? null : (
               <span
                 className={`text-xs font-medium ${
                   points === 0 ? 'text-ink/65' : points < 0 ? 'text-emerald-700' : 'text-red-700'
@@ -79,7 +93,7 @@ export function OrdersKpis({ summary }: { summary: DashboardSummary }) {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Metric
           label="Pendientes ahora en el período"
           value={formatInt(current.pending)}
@@ -91,14 +105,28 @@ export function OrdersKpis({ summary }: { summary: DashboardSummary }) {
           value={formatInt(current.ready)}
           caption="Pedidos hechos en el período, listos y sin retirar"
         />
+
+        <Metric
+          label="Clientes distintos"
+          value={formatInt(summary.customers.current)}
+          caption="Personas que hicieron al menos un pedido no cancelado en el período"
+          footer={
+            <Delta
+              current={summary.customers.current}
+              previous={summary.customers.previous}
+              previousLabel={previousLabel}
+              enough={enough}
+            />
+          }
+        />
       </div>
 
-      {summary.commercial && <CommercialPanel summary={summary} />}
+      {summary.commercial && <CommercialPanel summary={summary} enough={enough} />}
     </div>
   );
 }
 
-function CommercialPanel({ summary }: { summary: DashboardSummary }) {
+function CommercialPanel({ summary, enough }: { summary: DashboardSummary; enough: boolean }) {
   const commercial = summary.commercial;
 
   if (!commercial) {
@@ -111,8 +139,6 @@ function CommercialPanel({ summary }: { summary: DashboardSummary }) {
 
   const ticketOrders = ratio(commercial.orderValue.current, validNow);
   const ticketOrdersBefore = ratio(commercial.orderValue.previous, validBefore);
-  const ticketPaid = ratio(commercial.registeredIncome.current, commercial.paidOrders.current);
-  const ticketPaidBefore = ratio(commercial.registeredIncome.previous, commercial.paidOrders.previous);
 
   return (
     <Card
@@ -122,7 +148,7 @@ function CommercialPanel({ summary }: { summary: DashboardSummary }) {
       {validNow === 0 && commercial.paidOrders.current === 0 ? (
         <EmptyData />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Metric
             label="Valor de pedidos"
             value={formatMoney(commercial.orderValue.current)}
@@ -132,6 +158,7 @@ function CommercialPanel({ summary }: { summary: DashboardSummary }) {
                 current={commercial.orderValue.current}
                 previous={commercial.orderValue.previous}
                 previousLabel={previousLabel}
+                enough={enough}
               />
             }
           />
@@ -145,12 +172,13 @@ function CommercialPanel({ summary }: { summary: DashboardSummary }) {
                 current={commercial.registeredIncome.current}
                 previous={commercial.registeredIncome.previous}
                 previousLabel={previousLabel}
+                enough={enough}
               />
             }
           />
 
           <Metric
-            label="Ticket promedio de pedidos"
+            label="Ticket promedio"
             value={ticketOrders === null ? '—' : formatMoney(ticketOrders)}
             caption={
               ticketOrders === null
@@ -159,22 +187,12 @@ function CommercialPanel({ summary }: { summary: DashboardSummary }) {
             }
             footer={
               ticketOrders !== null && ticketOrdersBefore !== null ? (
-                <Delta current={ticketOrders} previous={ticketOrdersBefore} previousLabel={previousLabel} />
-              ) : null
-            }
-          />
-
-          <Metric
-            label="Ticket promedio cobrado"
-            value={ticketPaid === null ? '—' : formatMoney(ticketPaid)}
-            caption={
-              ticketPaid === null
-                ? NO_DATA_MESSAGE
-                : `Ingreso registrado ÷ ${formatInt(commercial.paidOrders.current)} pedidos pagados`
-            }
-            footer={
-              ticketPaid !== null && ticketPaidBefore !== null ? (
-                <Delta current={ticketPaid} previous={ticketPaidBefore} previousLabel={previousLabel} />
+                <Delta
+                  current={ticketOrders}
+                  previous={ticketOrdersBefore}
+                  previousLabel={previousLabel}
+                  enough={enough}
+                />
               ) : null
             }
           />

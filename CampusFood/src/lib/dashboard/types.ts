@@ -38,6 +38,8 @@ export type CommercialSummary = {
   // SUM(Pago.monto) con pago REGISTRADO cuya fecha de pago cae en el período.
   registeredIncome: PeriodPair<number>;
   paidOrders: PeriodPair<number>;
+  // SUM(Pedido.total) de los pedidos con falta por no retiro (no anulada) con fecha en el período.
+  missedPickupValue: number;
 };
 
 export type CancellationSummary = {
@@ -59,9 +61,21 @@ export type PenaltySummary = {
   blockedUsers: number;
 };
 
+export type PollParticipation = {
+  title: string;
+  status: 'ACTIVA' | 'CERRADA' | 'ARCHIVADA';
+  votes: number;
+  // Estudiantes activos (rol student) que podrían votar.
+  eligible: number;
+};
+
 export type DashboardSummary = {
   range: ResolvedRange;
   orders: PeriodPair<OrderCounts>;
+  // Clientes distintos con al menos un pedido no cancelado creado en el período.
+  customers: PeriodPair<number>;
+  // Encuesta vigente (o la más reciente si no hay ninguna vigente); null si nunca hubo.
+  pollParticipation: PollParticipation | null;
   // null cuando el usuario no tiene el permiso VIEW_FINANCIALS.
   commercial: CommercialSummary | null;
   cancellations: CancellationSummary;
@@ -114,6 +128,13 @@ export type ProductUsage = {
   orders: number;
 };
 
+export type LowStockProduct = {
+  productId: number;
+  name: string;
+  category: string;
+  stock: number;
+};
+
 export type ProductsDashboard = {
   range: ResolvedRange;
   totalUnits: number;
@@ -121,6 +142,8 @@ export type ProductsDashboard = {
   // Productos activos con menos solicitudes (incluye los que no tuvieron ninguna).
   bottom: ProductUsage[];
   categories: { category: string; units: number; share: number }[];
+  // Productos activos con stock <= threshold (foto de hoy, no depende del rango).
+  lowStock: { threshold: number; total: number; items: LowStockProduct[] };
 };
 
 export type Insight = {

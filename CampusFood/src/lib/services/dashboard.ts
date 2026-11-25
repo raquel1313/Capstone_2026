@@ -14,6 +14,7 @@ import type {
   OrdersDashboard,
   PenaltySummary,
   PeriodPair,
+  PollParticipation,
   ProductsDashboard,
   ProductUsage,
   ResolvedRange,
@@ -98,7 +99,7 @@ async function getOrderCounts(range: ResolvedRange): Promise<PeriodPair<OrderCou
 }
 
 async function getCommercial(range: ResolvedRange): Promise<CommercialSummary> {
-  const [orders, payments] = await Promise.all([
+  const [orders, payments, missed] = await Promise.all([
     prisma.$queryRaw<{ periodo: 'cur' | 'prev'; valor: number }[]>`
       SELECT CASE WHEN ${within(Prisma.sql`o.fecha_creacion`, range.from, range.to)} THEN 'cur' ELSE 'prev' END AS periodo,
              COALESCE(SUM(o.total), 0)::float8 AS valor
@@ -119,6 +120,16 @@ async function getCommercial(range: ResolvedRange): Promise<CommercialSummary> {
           OR ${within(Prisma.sql`p.fecha_pago`, range.previous.from, range.previous.to)})
       GROUP BY 1
     `,
+    // Dinero "en el aire": valor de los pedidos que quedaron listos y nunca se retiraron
+    // (faltas por no retiro vigentes, es decir, sin anular por amnistía).
+    prisma.$queryRaw<{ valor: number }[]>`
+      SELECT COALESCE(SUM(o.total), 0)::float8 AS valor
+      FROM penalizaciones p
+      JOIN pedidos o ON o.id_pedido = p.id_pedido
+      WHERE p.tipo::text = 'NO_RETIRO'
+        AND NOT p.anulada
+        AND ${within(Prisma.sql`p.fecha_falta`, range.from, range.to)}
+    `,
   ]);
 
   const pick = <T extends { periodo: string }>(rows: T[], periodo: 'cur' | 'prev') =>
@@ -137,6 +148,59 @@ async function getCommercial(range: ResolvedRange): Promise<CommercialSummary> {
       current: num(pick(payments, 'cur')?.pagados),
       previous: num(pick(payments, 'prev')?.pagados),
     },
+    missedPickupValue: num(missed[0]?.valor),
+  };
+}
+
+// Clientes distintos que pidieron (pedidos no cancelados), en el período y en el anterior.
+async function getCustomers(range: ResolvedRange): Promise<PeriodPair<number>> {
+  const rows = await prisma.$queryRaw<{ periodo: 'cur' | 'prev'; clientes: number }[]>`
+    SELECT CASE WHEN ${within(Prisma.sql`o.fecha_creacion`, range.from, range.to)} THEN 'cur' ELSE 'prev' END AS periodo,
+           count(DISTINCT o.id_usuario)::int AS clientes
+    FROM pedidos o
+    JOIN estados_pedido e ON e.id_estado = o.id_estado
+    WHERE e.nombre <> 'CANCELADO'
+      AND (${within(Prisma.sql`o.fecha_creacion`, range.from, range.to)}
+        OR ${within(Prisma.sql`o.fecha_creacion`, range.previous.from, range.previous.to)})
+    GROUP BY 1
+  `;
+
+  return {
+    current: num(rows.find((row) => row.periodo === 'cur')?.clientes),
+    previous: num(rows.find((row) => row.periodo === 'prev')?.clientes),
+  };
+}
+
+// Votos de la encuesta vigente (o de la más reciente si todas están archivadas) contra
+// los estudiantes activos que podrían votar.
+async function getPollParticipation(): Promise<PollParticipation | null> {
+  const rows = await prisma.$queryRaw<
+    { titulo: string; estado: PollParticipation['status']; votos: number; habilitados: number }[]
+  >`
+    SELECT e.titulo,
+           e.estado::text AS estado,
+           (SELECT count(*) FROM votos v WHERE v.id_encuesta = e.id_encuesta)::int AS votos,
+           (SELECT count(DISTINCT u.id_usuario)
+              FROM usuarios u
+              JOIN usuario_rol ur ON ur.id_usuario = u.id_usuario
+              JOIN roles r ON r.id_rol = ur.id_rol
+             WHERE u.activo AND r.nombre = 'student')::int AS habilitados
+    FROM encuestas e
+    ORDER BY (e.estado::text <> 'ARCHIVADA') DESC, e.fecha_creacion DESC
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    title: row.titulo,
+    status: row.estado,
+    votes: num(row.votos),
+    eligible: num(row.habilitados),
   };
 }
 
@@ -247,14 +311,16 @@ export async function getDashboardSummary(
   range: ResolvedRange,
   options: { includeCommercial: boolean },
 ): Promise<DashboardSummary> {
-  const [orders, commercial, cancellations, penalties] = await Promise.all([
+  const [orders, commercial, cancellations, penalties, customers, pollParticipation] = await Promise.all([
     getOrderCounts(range),
     options.includeCommercial ? getCommercial(range) : Promise.resolve(null),
     getCancellations(range),
     getPenalties(range),
+    getCustomers(range),
+    getPollParticipation(),
   ]);
 
-  return { range, orders, commercial, cancellations, penalties };
+  return { range, orders, customers, pollParticipation, commercial, cancellations, penalties };
 }
 
 /* ---------------------- Demanda y tiempos operativos ---------------------- */
@@ -434,28 +500,42 @@ export async function getOrdersDashboard(range: ResolvedRange): Promise<OrdersDa
 /* ------------------------------- Productos ------------------------------- */
 
 const LIST_SIZE = 10;
+// Un producto activo con esta cantidad de unidades o menos se considera con stock bajo.
+const LOW_STOCK_THRESHOLD = 5;
 
 export async function getProductsDashboard(range: ResolvedRange): Promise<ProductsDashboard> {
-  // Un solo recorrido: unidades por producto desde PedidoDetalle (pedidos no cancelados del
-  // período) unidas al catálogo. Los productos activos sin ventas salen con 0 unidades.
-  const rows = await prisma.$queryRaw<
-    { id: number; nombre: string; categoria: string; activo: boolean; unidades: number; pedidos: number }[]
-  >`
-    SELECT p.id_producto AS id, p.nombre, c.nombre AS categoria, p.activo,
-           COALESCE(u.unidades, 0)::int AS unidades,
-           COALESCE(u.pedidos, 0)::int AS pedidos
-    FROM productos p
-    JOIN categorias_producto c ON c.id_categoria = p.id_categoria
-    LEFT JOIN (
-      SELECT d.id_producto, SUM(d.cantidad) AS unidades, count(DISTINCT d.id_pedido) AS pedidos
-      FROM pedido_detalle d
-      JOIN pedidos o ON o.id_pedido = d.id_pedido
-      JOIN estados_pedido e ON e.id_estado = o.id_estado
-      WHERE e.nombre <> 'CANCELADO' AND ${within(Prisma.sql`o.fecha_creacion`, range.from, range.to)}
-      GROUP BY d.id_producto
-    ) u ON u.id_producto = p.id_producto
-    WHERE p.activo OR u.unidades > 0
-  `;
+  const [rows, lowStockRows] = await Promise.all([
+    // Un solo recorrido: unidades por producto desde PedidoDetalle (pedidos no cancelados del
+    // período) unidas al catálogo. Los productos activos sin ventas salen con 0 unidades.
+    prisma.$queryRaw<
+      { id: number; nombre: string; categoria: string; activo: boolean; unidades: number; pedidos: number }[]
+    >`
+      SELECT p.id_producto AS id, p.nombre, c.nombre AS categoria, p.activo,
+             COALESCE(u.unidades, 0)::int AS unidades,
+             COALESCE(u.pedidos, 0)::int AS pedidos
+      FROM productos p
+      JOIN categorias_producto c ON c.id_categoria = p.id_categoria
+      LEFT JOIN (
+        SELECT d.id_producto, SUM(d.cantidad) AS unidades, count(DISTINCT d.id_pedido) AS pedidos
+        FROM pedido_detalle d
+        JOIN pedidos o ON o.id_pedido = d.id_pedido
+        JOIN estados_pedido e ON e.id_estado = o.id_estado
+        WHERE e.nombre <> 'CANCELADO' AND ${within(Prisma.sql`o.fecha_creacion`, range.from, range.to)}
+        GROUP BY d.id_producto
+      ) u ON u.id_producto = p.id_producto
+      WHERE p.activo OR u.unidades > 0
+    `,
+    // Stock de hoy (no depende del rango): los más críticos primero.
+    prisma.$queryRaw<{ id: number; nombre: string; categoria: string; stock: number; total: number }[]>`
+      SELECT p.id_producto AS id, p.nombre, c.nombre AS categoria, p.stock,
+             count(*) OVER ()::int AS total
+      FROM productos p
+      JOIN categorias_producto c ON c.id_categoria = p.id_categoria
+      WHERE p.activo AND p.stock <= ${LOW_STOCK_THRESHOLD}
+      ORDER BY p.stock ASC, p.nombre
+      LIMIT ${LIST_SIZE}
+    `,
+  ]);
 
   const products: ProductUsage[] = rows.map((row) => ({
     productId: num(row.id),
@@ -489,5 +569,16 @@ export async function getProductsDashboard(range: ResolvedRange): Promise<Produc
     .map(([category, units]) => ({ category, units, share: totalUnits > 0 ? units / totalUnits : 0 }))
     .sort((a, b) => b.units - a.units);
 
-  return { range, totalUnits, top, bottom, categories };
+  const lowStock = {
+    threshold: LOW_STOCK_THRESHOLD,
+    total: num(lowStockRows[0]?.total),
+    items: lowStockRows.map((row) => ({
+      productId: num(row.id),
+      name: row.nombre,
+      category: row.categoria,
+      stock: num(row.stock),
+    })),
+  };
+
+  return { range, totalUnits, top, bottom, categories, lowStock };
 }

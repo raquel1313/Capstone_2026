@@ -180,7 +180,18 @@ export function buildInsights(input: {
     });
   }
 
-  // 8) Clientes bloqueados por faltas.
+  // 8) Stock bajo o agotado (foto de hoy: no depende del período elegido).
+  if (products.lowStock.total > 0) {
+    const count = products.lowStock.total;
+
+    insights.push({
+      id: 'low-stock',
+      tone: 'negative',
+      text: `${formatInt(count)} ${count === 1 ? 'producto activo tiene' : 'productos activos tienen'} stock bajo o agotado (${formatInt(products.lowStock.threshold)} unidades o menos): conviene reponer pronto para no cancelar pedidos por falta de stock.`,
+    });
+  }
+
+  // 9) Clientes bloqueados por faltas.
   if (summary.penalties.blockedUsers > 0) {
     const count = summary.penalties.blockedUsers;
 
