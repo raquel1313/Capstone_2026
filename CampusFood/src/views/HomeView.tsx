@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import Image from 'next/image';
 
@@ -64,6 +64,34 @@ function createConfetti(): ConfettiPiece[] {
   }));
 }
 
+/**
+ * Valida si una fecha (YYYY-MM-DD o ISO) cae dentro de los 5 días hábiles
+ * (Lunes a Viernes) de la semana activa.
+ */
+function isCurrentWeekDay(dateStr: string): boolean {
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length < 3) return false;
+
+  const targetDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  targetDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0: Dom, 1: Lun, ..., 6: Sáb
+
+  // Lunes de esta semana
+  const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  // Viernes de esta semana
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  friday.setHours(23, 59, 59, 999);
+
+  const day = targetDate.getDay();
+  return day >= 1 && day <= 5 && targetDate >= monday && targetDate <= friday;
+}
+
 export function HomeView({
   setView,
   openOrders,
@@ -93,6 +121,12 @@ export function HomeView({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
+
+  // Filtrar exclusivamente Lunes a Viernes de la semana actual (igual que MenuView)
+  const visibleDays = useMemo(
+    () => lunchDays.filter((d) => isCurrentWeekDay(d.date)),
+    [lunchDays]
+  );
 
   // En celular: tocar fuera de una tarjeta cierra el abanico
   useEffect(() => {
@@ -285,136 +319,143 @@ export function HomeView({
             Ver todo
           </button>
         </div>
-        <div className="-mx-6 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-6 px-6 pb-4 pt-1 [scrollbar-width:none] sm:-mx-7 sm:scroll-px-7 sm:px-7 [&::-webkit-scrollbar]:hidden">
-          {lunchDays.map((item, index) => {
-            const isOpen = openDay === item.id;
-            const availableDishes = item.dishes.filter((d) => !d.soldOut);
-            const representative = availableDishes[0] ?? item.dishes[0] ?? null;
-            const allSoldOut = item.dishes.length > 0 && availableDishes.length === 0;
-            const userReaction = representative ? getUserReaction(representative.id) : null;
 
-            return (
-              <div
-                key={item.id}
-                data-day-card
-                className="relative w-[82%] shrink-0 snap-start sm:w-[56%] lg:w-[42%]"
-                onPointerEnter={(event) => {
-                  if (event.pointerType === 'mouse') {
-                    setOpenDay(item.id);
-                  }
-                }}
-                onPointerLeave={(event) => {
-                  if (event.pointerType === 'mouse') {
-                    setOpenDay((current) =>
-                      current === item.id ? null : current
-                    );
-                  }
-                }}
-              >
-                <button
-                  onClick={() => {
-                    setSelectedDay(index);
-                    setOpenDay(item.id);
+        {visibleDays.length === 0 ? (
+          <p className="mt-5 text-sm text-ink/65">
+            Aún no hay menús cargados para esta semana.
+          </p>
+        ) : (
+          <div className="-mx-6 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-6 px-6 pb-4 pt-1 [scrollbar-width:none] sm:-mx-7 sm:scroll-px-7 sm:px-7 [&::-webkit-scrollbar]:hidden">
+            {visibleDays.map((item, index) => {
+              const isOpen = openDay === item.id;
+              const availableDishes = item.dishes.filter((d) => !d.soldOut);
+              const representative = availableDishes[0] ?? item.dishes[0] ?? null;
+              const allSoldOut = item.dishes.length > 0 && availableDishes.length === 0;
+              const userReaction = representative ? getUserReaction(representative.id) : null;
+
+              return (
+                <div
+                  key={item.id}
+                  data-day-card
+                  className="relative w-[82%] shrink-0 snap-start sm:w-[56%] lg:w-[42%]"
+                  onPointerEnter={(event) => {
+                    if (event.pointerType === 'mouse') {
+                      setOpenDay(item.id);
+                    }
                   }}
-                  className={`w-full overflow-hidden rounded-3xl border text-left transition ${
-                    selectedDay === index
-                      ? 'border-brand bg-brand-soft shadow-[0_8px_24px_rgba(46,83,54,0.14)]'
-                      : 'border-transparent bg-surface hover:bg-brand-soft'
-                  }`}
+                  onPointerLeave={(event) => {
+                    if (event.pointerType === 'mouse') {
+                      setOpenDay((current) =>
+                        current === item.id ? null : current
+                      );
+                    }
+                  }}
                 >
-                  {representative?.image && (
-                    <div className="relative h-44 w-full overflow-hidden sm:h-52">
-                      <Image
-                        src={representative.image}
-                        alt={representative.name}
-                        fill
-                        sizes="(max-width: 640px) 82vw, (max-width: 1024px) 56vw, 42vw"
-                        unoptimized
-                        className={`object-cover ${allSoldOut ? 'grayscale' : ''}`}
-                      />
+                  <button
+                    onClick={() => {
+                      setSelectedDay(index);
+                      setOpenDay(item.id);
+                    }}
+                    className={`w-full overflow-hidden rounded-3xl border text-left transition ${
+                      selectedDay === index
+                        ? 'border-brand bg-brand-soft shadow-[0_8px_24px_rgba(46,83,54,0.14)]'
+                        : 'border-transparent bg-surface hover:bg-brand-soft'
+                    }`}
+                  >
+                    {representative?.image && (
+                      <div className="relative h-44 w-full overflow-hidden sm:h-52">
+                        <Image
+                          src={representative.image}
+                          alt={representative.name}
+                          fill
+                          sizes="(max-width: 640px) 82vw, (max-width: 1024px) 56vw, 42vw"
+                          unoptimized
+                          className={`object-cover ${allSoldOut ? 'grayscale' : ''}`}
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-ink/65">
+                          {getDayLabel(item.date)}
+                        </span>
+
+                        <span className="grid h-8 w-8 place-items-center rounded-full bg-brand/10 text-sm font-semibold text-brand">
+                          {getDayNumber(item.date)}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 line-clamp-2 text-base font-semibold sm:text-lg">
+                        {representative?.name ?? 'Sin platos cargados'}
+                      </p>
+
+                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink/65">
+                        {representative?.detail}
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {item.dishes.length > 1 && (
+                          <span className="rounded-full bg-ink/5 px-2.5 py-1 text-[10px] font-semibold text-ink/65">
+                            +{item.dishes.length - 1} opción{item.dishes.length - 1 === 1 ? '' : 'es'} más
+                          </span>
+                        )}
+                        {allSoldOut && (
+                          <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase text-red-600">
+                            Agotado
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Abanico de reacciones: sale de la esquina inferior izquierda */}
+                  {representative && (
+                    <div className="absolute bottom-4 left-4 z-20 h-0 w-0">
+                      {REACTIONS.map((reaction, i) => {
+                        const angle =
+                          (Math.PI / 2) * (i / (REACTIONS.length - 1));
+
+                        const x = Math.cos(angle) * ARC_RADIUS;
+                        const y = Math.sin(angle) * ARC_RADIUS;
+                        const isMine = userReaction === reaction.emoji;
+
+                        return (
+                          <button
+                            key={reaction.emoji}
+                            type="button"
+                            title={reaction.label}
+                            aria-label={reaction.label}
+                            tabIndex={isOpen ? 0 : -1}
+                            onClick={() => {
+                              react(representative.id, reaction.emoji);
+                              setOpenDay(null);
+                            }}
+                            className={`absolute left-0 top-0 grid h-9 w-9 place-items-center rounded-full bg-white text-lg shadow-[0_4px_14px_rgba(0,0,0,0.18)] transition duration-300 ease-out hover:scale-110 motion-reduce:transition-none ${
+                              isMine ? 'ring-2 ring-brand' : ''
+                            } ${
+                              isOpen
+                                ? 'pointer-events-auto opacity-100'
+                                : 'pointer-events-none opacity-0'
+                            }`}
+                            style={{
+                              transform: isOpen
+                                ? `translate(calc(-50% + ${x}px), calc(-50% - ${y}px)) scale(1)`
+                                : 'translate(-50%, -50%) scale(0.3)',
+                              transitionDelay: isOpen ? `${i * 40}ms` : '0ms',
+                            }}
+                          >
+                            {reaction.emoji}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
-
-                  <div className="p-5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-ink/65">
-                        {getDayLabel(item.date)}
-                      </span>
-
-                      <span className="grid h-8 w-8 place-items-center rounded-full bg-brand/10 text-sm font-semibold text-brand">
-                        {getDayNumber(item.date)}
-                      </span>
-                    </div>
-
-                    <p className="mt-3 line-clamp-2 text-base font-semibold sm:text-lg">
-                      {representative?.name ?? 'Sin platos cargados'}
-                    </p>
-
-                    <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink/65">
-                      {representative?.detail}
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {item.dishes.length > 1 && (
-                        <span className="rounded-full bg-ink/5 px-2.5 py-1 text-[10px] font-semibold text-ink/65">
-                          +{item.dishes.length - 1} opción{item.dishes.length - 1 === 1 ? '' : 'es'} más
-                        </span>
-                      )}
-                      {allSoldOut && (
-                        <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase text-red-600">
-                          Agotado
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                {/* Abanico de reacciones: sale de la esquina inferior izquierda */}
-                {representative && (
-                  <div className="absolute bottom-4 left-4 z-20 h-0 w-0">
-                    {REACTIONS.map((reaction, i) => {
-                      const angle =
-                        (Math.PI / 2) * (i / (REACTIONS.length - 1));
-
-                      const x = Math.cos(angle) * ARC_RADIUS;
-                      const y = Math.sin(angle) * ARC_RADIUS;
-                      const isMine = userReaction === reaction.emoji;
-
-                      return (
-                        <button
-                          key={reaction.emoji}
-                          type="button"
-                          title={reaction.label}
-                          aria-label={reaction.label}
-                          tabIndex={isOpen ? 0 : -1}
-                          onClick={() => {
-                            react(representative.id, reaction.emoji);
-                            setOpenDay(null);
-                          }}
-                          className={`absolute left-0 top-0 grid h-9 w-9 place-items-center rounded-full bg-white text-lg shadow-[0_4px_14px_rgba(0,0,0,0.18)] transition duration-300 ease-out hover:scale-110 motion-reduce:transition-none ${
-                            isMine ? 'ring-2 ring-brand' : ''
-                          } ${
-                            isOpen
-                              ? 'pointer-events-auto opacity-100'
-                              : 'pointer-events-none opacity-0'
-                          }`}
-                          style={{
-                            transform: isOpen
-                              ? `translate(calc(-50% + ${x}px), calc(-50% - ${y}px)) scale(1)`
-                              : 'translate(-50%, -50%) scale(0.3)',
-                            transitionDelay: isOpen ? `${i * 40}ms` : '0ms',
-                          }}
-                        >
-                          {reaction.emoji}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Votación */}
